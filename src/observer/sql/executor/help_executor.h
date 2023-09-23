@@ -41,7 +41,8 @@ public:
         "insert into `table` values(`value1`,`value2`);",
         "update `table` set column=value [where `column`=`value`];",
         "delete from `table` [where `column`=`value`];",
-        "select [ * | `columns` ] from `table`;"
+        "select [ * | `columns` ] from `table`;",
+        "drop table `table name`;",
       };
 
     auto oper = new StringListPhysicalOperator();

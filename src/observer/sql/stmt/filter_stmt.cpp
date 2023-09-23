@@ -90,6 +90,10 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   filter_unit = new FilterUnit;
 
+  // store attr's type
+  AttrType left_attr_type;
+  AttrType right_attr_type;
+
   if (condition.left_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
@@ -99,8 +103,10 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       return rc;
     }
     FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
+    Field left_field = Field(table, field);
+    filter_obj.init_attr(left_field);
     filter_unit->set_left(filter_obj);
+    left_attr_type = left_field.attr_type();
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
@@ -116,8 +122,10 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       return rc;
     }
     FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
+    Field right_field = Field(table, field);
+    filter_obj.init_attr(right_field);
     filter_unit->set_right(filter_obj);
+    right_attr_type = right_field.attr_type();
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
@@ -127,5 +135,28 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   filter_unit->set_comp(comp);
 
   // 检查两个类型是否能够比较
+  /**
+   * @author ljf
+   * case 1 : both are attr
+   * case 2 : neither is attr
+   * case 3 : one is attr and the other is not attr
+  */
+  bool can_be_compared = true;
+  if(condition.left_is_attr&&condition.right_is_attr){
+    can_be_compared = (left_attr_type == right_attr_type);
+  }
+
+  else if(!condition.left_is_attr&&!condition.right_is_attr){
+    can_be_compared = (condition.left_value.attr_type()== condition.right_value.attr_type());
+  }
+
+  else{
+    if(condition.left_is_attr) can_be_compared = (left_attr_type == condition.right_value.attr_type());
+    else can_be_compared = (condition.left_value.attr_type() == right_attr_type);
+  }
+  
+  if(!can_be_compared){
+    rc = RC::INVALID_ARGUMENT;
+  }
   return rc;
 }

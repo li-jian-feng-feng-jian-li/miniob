@@ -68,25 +68,31 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
 
+    //e.g. select * from t or select id from t
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
         0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
       for (Table *table : tables) {
         wildcard_fields(table, query_fields);
       }
 
+      //e.g. select c.xx from c ,xx can be * or any attr
     } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
       const char *table_name = relation_attr.relation_name.c_str();
       const char *field_name = relation_attr.attribute_name.c_str();
 
+      //select *.xx
       if (0 == strcmp(table_name, "*")) {
+        //select *.* ,return error
         if (0 != strcmp(field_name, "*")) {
           LOG_WARN("invalid field name while table is *. attr=%s", field_name);
           return RC::SCHEMA_FIELD_MISSING;
         }
+        //select *.xx
         for (Table *table : tables) {
           wildcard_fields(table, query_fields);
         }
       } else {
+        //select t.xx
         auto iter = table_map.find(table_name);
         if (iter == table_map.end()) {
           LOG_WARN("no such table in from list: %s", table_name);
@@ -94,9 +100,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
         }
 
         Table *table = iter->second;
+        //select t.*
         if (0 == strcmp(field_name, "*")) {
           wildcard_fields(table, query_fields);
         } else {
+          //select t.xx
           const FieldMeta *field_meta = table->table_meta().field(field_name);
           if (nullptr == field_meta) {
             LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
@@ -107,11 +115,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
         }
       }
     } else {
+      //select id,name from t1.t2,invaild
       if (tables.size() != 1) {
         LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
         return RC::SCHEMA_FIELD_MISSING;
       }
-
+      //select id,name from t
       Table *table = tables[0];
       const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name.c_str());
       if (nullptr == field_meta) {

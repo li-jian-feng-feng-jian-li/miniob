@@ -182,6 +182,12 @@ public:
   RC delete_record(const RID *rid);
 
   /**
+   * update record 
+   * @author ljf
+  */
+  RC update_record(const RID *rid, const Value *value, const FieldMeta *field_meta);
+
+  /**
    * @brief 获取指定位置的记录数据
    *
    * @param rid 指定的位置
@@ -280,6 +286,12 @@ public:
    * @param rid         返回该记录的标识符
    */
   RC insert_record(const char *data, int record_size, RID *rid);
+
+  /**
+   * update_record
+   * @author ljf
+  */
+  RC update_record(const RID* rid, const Value *value, const FieldMeta *field_meta);
 
    /**
    * @brief 数据库恢复时，在指定文件指定位置插入数据

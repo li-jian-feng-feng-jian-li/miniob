@@ -24,7 +24,7 @@ static constexpr int PAGE_HEADER_SIZE = (sizeof(PageHeader));
 /**
  * @brief 8字节对齐
  * 注: ceiling(a / b) = floor((a + b - 1) / b)
- * 
+ *
  * @param size 待对齐的字节数
  */
 int align8(int size) { return (size + 7) / 8 * 8; }
@@ -103,7 +103,7 @@ RC RecordPageHandler::init(DiskBufferPool &buffer_pool, PageNum page_num, bool r
   readonly_         = readonly;
   page_header_      = (PageHeader *)(data);
   bitmap_           = data + PAGE_HEADER_SIZE;
-  
+
   LOG_TRACE("Successfully init page_num %d.", page_num);
   return ret;
 }
@@ -149,8 +149,9 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_
   page_header_->record_capacity     = page_record_capacity(BP_PAGE_DATA_SIZE, page_header_->record_size);
   page_header_->first_record_offset = align8(PAGE_HEADER_SIZE + page_bitmap_size(page_header_->record_capacity));
   this->fix_record_capacity();
-  ASSERT(page_header_->first_record_offset + 
-         page_header_->record_capacity * page_header_->record_size <= BP_PAGE_DATA_SIZE, "Record overflow the page size");
+  ASSERT(page_header_->first_record_offset + page_header_->record_capacity * page_header_->record_size <=
+             BP_PAGE_DATA_SIZE,
+      "Record overflow the page size");
 
   bitmap_ = frame_->data() + PAGE_HEADER_SIZE;
   memset(bitmap_, 0, page_bitmap_size(page_header_->record_capacity));
@@ -205,6 +206,31 @@ RC RecordPageHandler::insert_record(const char *data, RID *rid)
   }
 
   // LOG_TRACE("Insert record. rid page_num=%d, slot num=%d", get_page_num(), index);
+  return RC::SUCCESS;
+}
+
+RC RecordPageHandler::update_record(const RID *rid, const Value *value, const FieldMeta *field_meta)
+{
+  ASSERT(readonly_ == false, "cannot delete record from page while the page is readonly");
+
+  if (rid->slot_num >= page_header_->record_capacity) {
+    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  char       *record_data = get_record_data(rid->slot_num);
+  const char *value_data  = value->data();
+  size_t      copy_len    = field_meta->len();
+  int         offset      = field_meta->offset();
+  if (field_meta->type() == CHARS) {
+    const size_t data_len = value->length();
+    if (copy_len > data_len) {
+      copy_len = data_len + 1;
+    }
+  }
+  memcpy(record_data + field_meta->offset(), value->data(), copy_len);
+  
+  frame_->mark_dirty();
   return RC::SUCCESS;
 }
 
@@ -315,10 +341,8 @@ void RecordFileHandler::close()
 /**
  * implent destroy implent
  * @author ljf
-*/
-RC RecordFileHandler::destroy(){
-  return RC::SUCCESS;
-}
+ */
+RC RecordFileHandler::destroy() { return RC::SUCCESS; }
 
 RC RecordFileHandler::init_free_pages()
 {
@@ -454,6 +478,20 @@ RC RecordFileHandler::delete_record(const RID *rid)
     LOG_TRACE("add free page %d to free page list", rid->page_num);
     lock_.unlock();
   }
+  return rc;
+}
+
+RC RecordFileHandler::update_record(const RID *rid, const Value *value, const FieldMeta *field_meta)
+{
+  RC rc = RC::SUCCESS;
+
+  RecordPageHandler page_handler;
+  if ((rc = page_handler.init(*disk_buffer_pool_, rid->page_num, false /*readonly*/)) != RC::SUCCESS) {
+    LOG_ERROR("Failed to init record page handler.page number=%d. rc=%s", rid->page_num, strrc(rc));
+    return rc;
+  }
+  rc = page_handler.update_record(rid, value, field_meta);
+  //page_handler.cleanup();
   return rc;
 }
 

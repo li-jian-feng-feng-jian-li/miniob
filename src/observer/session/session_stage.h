@@ -61,5 +61,6 @@ private:
   ParseStage      parse_stage_;
   ResolveStage    resolve_stage_;
   OptimizeStage   optimize_stage_;
+  
   ExecuteStage    execute_stage_;
 };

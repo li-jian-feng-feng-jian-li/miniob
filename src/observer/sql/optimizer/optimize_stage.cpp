@@ -102,6 +102,7 @@ RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator)
 
 RC OptimizeStage::create_logical_plan(SQLStageEvent *sql_event, unique_ptr<LogicalOperator> &logical_operator)
 {
+
   Stmt *stmt = sql_event->stmt();
   if (nullptr == stmt) {
     return RC::UNIMPLENMENT;

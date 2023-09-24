@@ -124,37 +124,37 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
  */
 RC Table::drop(const char *dir)
 {
-  
+
   RC rc = sync();  // 刷新所有脏页
 
   if (rc != RC::SUCCESS)
     return rc;
 
-  //destroy index
+  // destroy index
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {  // 清理所有的索引相关文件数据与索引元数据
-    ((BplusTreeIndex *)indexes_[i])->close(); 
+    ((BplusTreeIndex *)indexes_[i])->close();
     const IndexMeta *index_meta = table_meta_.index(i);
-    std::string index_file = table_index_file(dir,name(),index_meta->name());
+    std::string      index_file = table_index_file(dir, name(), index_meta->name());
     if (unlink(index_file.c_str()) != 0) {
       LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
       return RC::FILE_NOT_EXIST;
     }
   }
 
-  //destroy record handler
+  // destroy record handler
   rc = record_handler_->destroy();
   delete record_handler_;
   record_handler_ = nullptr;
 
   // close bufferpool manager and data file
-  std::string data_file = table_data_file(dir,name());
-  BufferPoolManager &bpm = BufferPoolManager::instance();
-  //when close_file ,it also close buffer pool manager
+  std::string        data_file = table_data_file(dir, name());
+  BufferPoolManager &bpm       = BufferPoolManager::instance();
+  // when close_file ,it also close buffer pool manager
   //,so i just call this method and then delete the data file
   rc = bpm.close_file(data_file.c_str());
 
-  if(rc != RC::SUCCESS) {
+  if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to close buffer pool!");
     return rc;
   }
@@ -497,6 +497,41 @@ RC Table::delete_record(const Record &record)
         strrc(rc));
   }
   rc = record_handler_->delete_record(&record.rid());
+  return rc;
+}
+
+RC Table::update_record(const Record &old_record, const Value *value, const char *field_name)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->delete_entry(old_record.data(), &old_record.rid());
+    ASSERT(RC::SUCCESS == rc,
+        "failed to delete entry from index. table name=%s, index name=%s, rid=%s, rc=%s",
+        name(),
+        index->index_meta().name(),
+        old_record.rid().to_string().c_str(),
+        strrc(rc));
+  }
+  const FieldMeta *field_meta = table_meta_.field(field_name);
+  
+  rc                          = record_handler_->update_record(&old_record.rid(), value, field_meta);
+
+  // create a new index
+  Record new_record;
+  rc = get_record(old_record.rid(), new_record);
+  rc = insert_entry_of_indexes(new_record.data(), new_record.rid());
+  if (rc != RC::SUCCESS) {  // 可能出现了键值重复
+    RC rc2 = delete_entry_of_indexes(new_record.data(), new_record.rid(), false /*error_on_not_exists*/);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+    rc2 = record_handler_->delete_record(&new_record.rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+  }
   return rc;
 }
 

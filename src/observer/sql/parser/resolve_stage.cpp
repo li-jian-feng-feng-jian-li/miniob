@@ -53,9 +53,5 @@ RC ResolveStage::handle_request(SQLStageEvent *sql_event)
   }
 
   sql_event->set_stmt(stmt);
-  bool b = (stmt == nullptr);
-  if(b)
-  LOG_DEBUG("stmt is nullptr!");
-
   return rc;
 }

@@ -59,7 +59,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   AttrType value_type = value->attr_type();
   // check if field type matches value type
   if (field_type != value_type) {
-    LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+    LOG_WARN("field type mismatch. table=%s, field=%s, field_type=%d, value_type=%d",
           table_name, field_meta->name(), field_type, value_type);
     return RC::INVALID_ARGUMENT;
   }

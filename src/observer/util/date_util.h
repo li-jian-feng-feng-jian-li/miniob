@@ -1,6 +1,6 @@
 
 
-bool check_date(int y, int m, int d)
+bool check_date_invalid(int y, int m, int d)
 {
     static int months[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     bool is_leap = (y%400==0 || (y%100 && y%4==0));

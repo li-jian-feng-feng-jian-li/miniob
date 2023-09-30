@@ -350,6 +350,9 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
         copy_len = data_len + 1;
       }
     }
+    // if(field->type() == DATES) {
+    //   LOG_DEBUG("date is %d,len is %d",value.get_date(),copy_len);
+    // }
     memcpy(record_data + field->offset(), value.data(), copy_len);
   }
 

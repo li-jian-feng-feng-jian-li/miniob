@@ -62,7 +62,8 @@ void Value::set_data(char *data, int length)
     } break;
     // TODO
     case DATES: {
-      set_date(data, length);
+      num_value_.date_value_ = *(int *)data;
+      length_                = length;
     } break;
     case INTS: {
       num_value_.int_value_ = *(int *)data;
@@ -120,23 +121,15 @@ void Value::set_date(const char *s, int len)
 {
   LOG_DEBUG("set_date() calls!");
   attr_type_ = DATES;
-  std::string str;
-  if (len > 0) {
-    len = strnlen(s, len);
-    str.assign(s, len);
-  } else {
-    str.assign(s);
-  }
   int y, m, d;
-  sscanf(str.c_str(), "%d-%d-%d", &y, &m, &d);
-  bool is_valid = check_date(y, m, d);
+  sscanf(s, "%d-%d-%d", &y, &m, &d);
+  bool is_valid = check_date_invalid(y, m, d);
   if (is_valid) {
     int date_to_int        = y * 10000 + m * 100 + d;
     num_value_.date_value_ = date_to_int;
-  } else {
-    num_value_.date_value_ = 0;
   }
-  length_ = sizeof(num_value_.date_value_);
+  else num_value_.date_value_ = 0;
+  length_                = sizeof(num_value_.date_value_);
 }
 
 void Value::set_value(const Value &value)

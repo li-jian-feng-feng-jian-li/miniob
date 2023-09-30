@@ -58,6 +58,10 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
           table_name, field_meta->name(), field_type, value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+    else if(field_type == DATES && values[i].get_date() == 0) {
+      return RC::INVALID_ARGUMENT;
+      //TODO invalide date type
+    }
   }
 
   // everything alright

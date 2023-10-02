@@ -31,12 +31,12 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
     const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt)
 {
   RC rc = RC::SUCCESS;
-  stmt = nullptr;
+  stmt  = nullptr;
 
   FilterStmt *tmp_stmt = new FilterStmt();
   for (int i = 0; i < condition_num; i++) {
     FilterUnit *filter_unit = nullptr;
-    rc = create_filter_unit(db, default_table, tables, conditions[i], filter_unit);
+    rc                      = create_filter_unit(db, default_table, tables, conditions[i], filter_unit);
     if (rc != RC::SUCCESS) {
       delete tmp_stmt;
       LOG_WARN("failed to create filter unit. condition index=%d", i);
@@ -95,15 +95,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   AttrType right_attr_type;
 
   if (condition.left_is_attr) {
-    Table *table = nullptr;
+    Table           *table = nullptr;
     const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
+    rc                     = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot find attr");
       return rc;
     }
     FilterObj filter_obj;
-    Field left_field = Field(table, field);
+    Field     left_field = Field(table, field);
     filter_obj.init_attr(left_field);
     filter_unit->set_left(filter_obj);
     left_attr_type = left_field.attr_type();
@@ -114,15 +114,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   }
 
   if (condition.right_is_attr) {
-    Table *table = nullptr;
+    Table           *table = nullptr;
     const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
+    rc                     = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot find attr");
       return rc;
     }
     FilterObj filter_obj;
-    Field right_field = Field(table, field);
+    Field     right_field = Field(table, field);
     filter_obj.init_attr(right_field);
     filter_unit->set_right(filter_obj);
     right_attr_type = right_field.attr_type();
@@ -134,29 +134,69 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   filter_unit->set_comp(comp);
 
+  // check date in conditions
+
+  if (!condition.left_is_attr && condition.left_value.attr_type() == DATES) {
+    int date_value = condition.left_value.get_date();
+    if (date_value == 0) {
+      rc = RC::INVALID_ARGUMENT;
+    }
+  }
+  if (!condition.right_is_attr && condition.right_value.attr_type() == DATES) {
+    int date_value = condition.right_value.get_date();
+    if (date_value == 0) {
+      rc = RC::INVALID_ARGUMENT;
+    }
+  }
+
   // 检查两个类型是否能够比较
+  // TODO finish typecast
   /**
    * @author ljf
    * case 1 : both are attr
    * case 2 : neither is attr
    * case 3 : one is attr and the other is not attr
-  */
+   */
   bool can_be_compared = true;
-  if(condition.left_is_attr&&condition.right_is_attr){
-    can_be_compared = (left_attr_type == right_attr_type);
+  if (condition.left_is_attr && condition.right_is_attr) {
+    if ((left_attr_type == INTS && right_attr_type == FLOATS) ||
+        (left_attr_type == FLOATS && right_attr_type == INTS)) {
+      can_be_compared = true;
+    } else {
+      can_be_compared = (left_attr_type == right_attr_type);
+    }
   }
 
-  else if(!condition.left_is_attr&&!condition.right_is_attr){
-    can_be_compared = (condition.left_value.attr_type()== condition.right_value.attr_type());
+  else if (!condition.left_is_attr && !condition.right_is_attr) {
+    if ((condition.left_value.attr_type() == INTS && condition.right_value.attr_type() == FLOATS) ||
+        (condition.left_value.attr_type() == FLOATS && condition.right_value.attr_type() == INTS)) {
+      can_be_compared = true;
+    } else {
+      can_be_compared = (condition.left_value.attr_type() == condition.right_value.attr_type());
+    }
   }
 
-  else{
-    if(condition.left_is_attr) can_be_compared = (left_attr_type == condition.right_value.attr_type());
-    else can_be_compared = (condition.left_value.attr_type() == right_attr_type);
+  else {
+    if (condition.left_is_attr) {
+      if ((left_attr_type == INTS && condition.right_value.attr_type() == FLOATS) ||
+          (left_attr_type == FLOATS && condition.right_value.attr_type() == INTS)) {
+        can_be_compared = true;
+      } else {
+        can_be_compared = (left_attr_type == condition.right_value.attr_type());
+      }
+    } else {
+      if ((condition.left_value.attr_type() == FLOATS && right_attr_type == INTS) ||
+          (condition.left_value.attr_type() == INTS && right_attr_type == FLOATS)) {
+        can_be_compared = true;
+      } else {
+        can_be_compared = (condition.left_value.attr_type() == right_attr_type);
+      }
+    }
   }
-  
-  if(!can_be_compared){
+
+  if (!can_be_compared) {
     rc = RC::INVALID_ARGUMENT;
   }
+
   return rc;
 }

@@ -242,7 +242,7 @@ int Value::compare(const Value &other) const
       other_data = other.num_value_.int_value_;
       return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
     }
-    if (other.attr_type_ == CHARS){
+    if (other.attr_type_ == CHARS) {
       try {
         other_data = std::stof(other.str_value_);
       } catch (std::invalid_argument &) {
@@ -250,13 +250,19 @@ int Value::compare(const Value &other) const
       }
       return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
     }
-  } else if (this->attr_type_ == CHARS){
+  } else if (this->attr_type_ == CHARS) {
     float other_data;
-    if(other.attr_type_ == INTS) other_data = other.num_value_.int_value_;
-    if(other.attr_type_ == FLOATS) other_data = other.num_value_.float_value_;
-    float this_data = std::stof(this->str_value_);
+    if (other.attr_type_ == INTS)
+      other_data = other.num_value_.int_value_;
+    if (other.attr_type_ == FLOATS)
+      other_data = other.num_value_.float_value_;
+    float this_data;
+    try {
+      this_data = std::stof(this->str_value_);
+    } catch (std::invalid_argument &) {
+      this_data = 0.0;
+    }
     return common::compare_float((void *)&this_data, (void *)&other_data);
-    
   }
   LOG_WARN("not supported");
   return -1;  // TODO return rc?

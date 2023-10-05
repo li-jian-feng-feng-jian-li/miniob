@@ -157,40 +157,32 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
    * case 2 : neither is attr
    * case 3 : one is attr and the other is not attr
    */
-  bool can_be_compared = true;
+  bool can_be_compared = false;
   if (condition.left_is_attr && condition.right_is_attr) {
-    if ((left_attr_type == INTS && right_attr_type == FLOATS) ||
-        (left_attr_type == FLOATS && right_attr_type == INTS)) {
+    if ((left_attr_type == DATES && right_attr_type == DATES) ||
+        (left_attr_type != DATES && right_attr_type != DATES)) {
       can_be_compared = true;
-    } else {
-      can_be_compared = (left_attr_type == right_attr_type);
     }
   }
 
   else if (!condition.left_is_attr && !condition.right_is_attr) {
-    if ((condition.left_value.attr_type() == INTS && condition.right_value.attr_type() == FLOATS) ||
-        (condition.left_value.attr_type() == FLOATS && condition.right_value.attr_type() == INTS)) {
+    if ((condition.left_value.attr_type() == DATES && condition.right_value.attr_type() == DATES) ||
+        (condition.left_value.attr_type() != DATES && condition.right_value.attr_type() != DATES)) {
       can_be_compared = true;
-    } else {
-      can_be_compared = (condition.left_value.attr_type() == condition.right_value.attr_type());
-    }
+    } 
   }
 
   else {
     if (condition.left_is_attr) {
-      if ((left_attr_type == INTS && condition.right_value.attr_type() == FLOATS) ||
-          (left_attr_type == FLOATS && condition.right_value.attr_type() == INTS)) {
+      if ((left_attr_type == DATES && condition.right_value.attr_type() == DATES) ||
+          (left_attr_type != DATES && condition.right_value.attr_type() != DATES)) {
         can_be_compared = true;
-      } else {
-        can_be_compared = (left_attr_type == condition.right_value.attr_type());
-      }
+      } 
     } else {
-      if ((condition.left_value.attr_type() == FLOATS && right_attr_type == INTS) ||
-          (condition.left_value.attr_type() == INTS && right_attr_type == FLOATS)) {
+      if ((condition.left_value.attr_type() == DATES && right_attr_type == DATES) ||
+          (condition.left_value.attr_type() != DATES && right_attr_type != DATES)) {
         can_be_compared = true;
-      } else {
-        can_be_compared = (condition.left_value.attr_type() == right_attr_type);
-      }
+      } 
     }
   }
 

@@ -21,7 +21,7 @@ InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
     : table_(table), values_(values), value_amount_(value_amount)
 {}
 
-RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
+RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
 {
   const char *table_name = inserts.relation_name.c_str();
   if (nullptr == db || nullptr == table_name || inserts.values.empty()) {
@@ -38,10 +38,10 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  const Value *values = inserts.values.data();
-  const int value_num = static_cast<int>(inserts.values.size());
-  const TableMeta &table_meta = table->table_meta();
-  const int field_num = table_meta.field_num() - table_meta.sys_field_num();
+  std::vector<Value> values     = inserts.values;
+  const int          value_num  = static_cast<int>(inserts.values.size());
+  const TableMeta   &table_meta = table->table_meta();
+  const int          field_num  = table_meta.field_num() - table_meta.sys_field_num();
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
@@ -51,20 +51,71 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   const int sys_field_num = table_meta.sys_field_num();
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
-    const AttrType field_type = field_meta->type();
-    const AttrType value_type = values[i].attr_type();
+    const AttrType   field_type = field_meta->type();
+    const AttrType   value_type = values[i].attr_type();
     if (field_type != value_type) {  // TODO try to convert the value type to field type
-      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+      if (value_type == CHARS) {
+        std::string s = values[i].get_string();
+        LOG_DEBUG("value =%s",s);
+        if (field_type == INTS) {
+          int num;
+          try {
+            num = std::stof(s);
+            LOG_DEBUG("num =%d",num);
+          } catch (std::invalid_argument &) {
+            num = 0;
+          }
+          values[i].set_value(Value(num));
+        } else if (field_type == FLOATS) {
+          float num;
+          try {
+            num = std::stof(s);
+          } catch (std::invalid_argument &) {
+            num = 0.0;
+          }
+          values[i].set_value(Value(num));
+        } else {
+          LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
           table_name, field_meta->name(), field_type, value_type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
-    else if(field_type == DATES && values[i].get_date() == 0) {
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+      }
+
+      if (value_type == INTS) {
+        int num = values[i].get_int();
+        if (field_type == FLOATS) {
+          values[i].set_value(Value((float)num));
+        } else if (field_type == CHARS) {
+          std::string s = std::to_string(num);
+          values[i].set_value(Value(s.c_str(), false));
+        } else {
+          LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          table_name, field_meta->name(), field_type, value_type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+      }
+
+      if (value_type == FLOATS) {
+        float num = values[i].get_float();
+        if (field_type == INTS) {
+          values[i].set_value(Value((int)num));
+        } else if (field_type == CHARS) {
+          std::string s = std::to_string(num);
+          values[i].set_value(Value(s.c_str(), false));
+        } else {
+          LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          table_name, field_meta->name(), field_type, value_type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+      }
+    } else if (field_type == DATES && values[i].get_date() == 0) {
       return RC::INVALID_ARGUMENT;
-      //TODO invalide date type
     }
   }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  inserts.values.swap(values);
+  const Value *values_vec = inserts.values.data();
+  stmt                    = new InsertStmt(table, values_vec, value_num);
   return RC::SUCCESS;
 }

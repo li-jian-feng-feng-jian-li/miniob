@@ -127,9 +127,9 @@ void Value::set_date(const char *s, int len)
   if (is_valid) {
     int date_to_int        = y * 10000 + m * 100 + d;
     num_value_.date_value_ = date_to_int;
-  }
-  else num_value_.date_value_ = 0;
-  length_                = sizeof(num_value_.date_value_);
+  } else
+    num_value_.date_value_ = 0;
+  length_ = sizeof(num_value_.date_value_);
 }
 
 void Value::set_value(const Value &value)
@@ -221,12 +221,42 @@ int Value::compare(const Value &other) const
         LOG_WARN("unsupported type: %d", this->attr_type_);
       }
     }
-  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
+  } else if (this->attr_type_ == INTS) {
     float this_data = this->num_value_.int_value_;
-    return common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
-  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
-    float other_data = other.num_value_.int_value_;
-    return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+    if (other.attr_type_ == FLOATS) {
+      return common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
+    }
+    if (other.attr_type_ == CHARS) {
+      float other_data;
+      try {
+        other_data = std::stof(other.str_value_);
+      } catch (std::invalid_argument &) {
+        other_data = 0.0;
+      }
+      return common::compare_float((void *)&this_data, (void *)&other_data);
+    }
+
+  } else if (this->attr_type_ == FLOATS) {
+    float other_data;
+    if (other.attr_type_ == INTS) {
+      other_data = other.num_value_.int_value_;
+      return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+    }
+    if (other.attr_type_ == CHARS){
+      try {
+        other_data = std::stof(other.str_value_);
+      } catch (std::invalid_argument &) {
+        other_data = 0.0;
+      }
+      return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+    }
+  } else if (this->attr_type_ == CHARS){
+    float other_data;
+    if(other.attr_type_ == INTS) other_data = other.num_value_.int_value_;
+    if(other.attr_type_ == FLOATS) other_data = other.num_value_.float_value_;
+    float this_data = std::stof(this->str_value_);
+    return common::compare_float((void *)&this_data, (void *)&other_data);
+    
   }
   LOG_WARN("not supported");
   return -1;  // TODO return rc?

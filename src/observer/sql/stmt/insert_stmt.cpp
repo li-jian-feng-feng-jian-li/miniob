@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include "cmath"
+#include "sstream"
 
 InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
     : table_(table), values_(values), value_amount_(value_amount)
@@ -101,8 +102,9 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
         if (field_type == INTS) {
           values[i].set_value(Value((int)round(num)));
         } else if (field_type == CHARS) {
-          std::string s = std::to_string(num);
-          values[i].set_value(Value(s.c_str(), false));
+          std::ostringstream oss;
+          oss<<num;
+          values[i].set_value(Value(oss.str().c_str(), false));
         } else {
           LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
           table_name, field_meta->name(), field_type, value_type);

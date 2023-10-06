@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include "cmath"
 
 InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
     : table_(table), values_(values), value_amount_(value_amount)
@@ -98,7 +99,7 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
       if (value_type == FLOATS) {
         float num = values[i].get_float();
         if (field_type == INTS) {
-          values[i].set_value(Value((int)num));
+          values[i].set_value(Value((int)round(num)));
         } else if (field_type == CHARS) {
           std::string s = std::to_string(num);
           values[i].set_value(Value(s.c_str(), false));

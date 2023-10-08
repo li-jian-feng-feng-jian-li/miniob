@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <algorithm>
+#include <utility>
 
 #include "common/log/log.h"
 #include "common/lang/string.h"
@@ -84,6 +85,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INTO
         VALUES
         FROM
+        INNER
+        JOIN
         WHERE
         AND
         SET
@@ -115,6 +118,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
   char *                            string;
   int                               number;
   float                             floats;
@@ -136,6 +140,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
+%type <join_list>           join_list
 %type <value_list>          value_list
 %type <value_lists>         value_lists
 %type <condition_list>      where
@@ -453,7 +458,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT select_attr FROM ID rel_list join_list where
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -467,13 +472,19 @@ select_stmt:        /*  select 语句的语法解析树*/
       $$->selection.relations.push_back($4);
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
-      if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
-        delete $6;
+      if ($7 != nullptr) {
+        $$->selection.conditions.swap(*$7);
+        delete $7;
+      }
+
+      if($6 != nullptr){
+        $$->selection.relations.insert($$->selection.relations.end(),($6->first).begin(),($6->first).end());
+        $$->selection.conditions.insert($$->selection.conditions.end(),($6->second).begin(),($6->second).end());
       }
       free($4);
     }
     ;
+  
 calc_stmt:
     CALC expression_list
     {
@@ -594,6 +605,20 @@ rel_list:
       free($2);
     }
     ;
+join_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | INNER JOIN ID ON condition_list join_list {
+      if($6 != nullptr){
+        $$ = $6;
+      } else {
+        $$ = new std::pair<std::vector<std::string>,std::vector<ConditionSqlNode> >;
+      }
+      $$->first.emplace_back($3);
+      $$->second.insert($$->second.end(),$5->begin(),$5->end());
+    }
 where:
     /* empty */
     {

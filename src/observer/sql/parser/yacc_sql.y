@@ -617,7 +617,8 @@ join_list:
         $$ = new std::pair<std::vector<std::string>,std::vector<ConditionSqlNode> >;
       }
       $$->first.emplace_back($3);
-      $$->second.insert($$->second.end(),$5->begin(),$5->end());
+      std::reverse($$->first.begin(),$$->first.end());
+      $$->second.insert($$->second.end(),$5->begin(),$5->end());                                          
     }
 where:
     /* empty */

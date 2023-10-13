@@ -49,19 +49,18 @@ enum class BplusTreeOperationType
  * @brief 属性比较(BplusTree)
  * @ingroup BPlusTree
  */
-class AttrComparator 
+class AttrComparator
 {
 public:
   void init(AttrType type, int length)
   {
-    attr_type_ = type;
+    LOG_DEBUG("start init attrtype_comparator!");
+    LOG_DEBUG("type:%d,length:%d",type,length);
+    attr_type_   = type;
     attr_length_ = length;
   }
 
-  int attr_length() const
-  {
-    return attr_length_;
-  }
+  int attr_length() const { return attr_length_; }
 
   int operator()(const char *v1, const char *v2) const
   {
@@ -87,7 +86,7 @@ public:
 
 private:
   AttrType attr_type_;
-  int attr_length_;
+  int      attr_length_;
 };
 
 /**
@@ -95,52 +94,93 @@ private:
  * @details BplusTree的键值除了字段属性，还有RID，是为了避免属性值重复而增加的。
  * @ingroup BPlusTree
  */
-class KeyComparator 
+class KeyComparator
 {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> types, std::vector<int> lengths)
   {
-    attr_comparator_.init(type, length);
+    int len        = 0;
+    int fields_num = types.size();
+    for (int i = 0; i < fields_num; i++) {
+      AttrComparator tmp;
+      tmp.init(types[i], lengths[i]);
+      attr_comparators_.emplace_back(tmp);
+      len += lengths[i];
+    }
+    total_length_       = len;
+    index_fields_num_   = fields_num;
+    compare_fields_num_ = index_fields_num_;
   }
 
-  const AttrComparator &attr_comparator() const
+  void reset()
   {
-    return attr_comparator_;
+    compare_fields_num_ = index_fields_num_;
+    // index_scan          = false;
   }
+  // void start_index_scan() { index_scan = true; }
+  void set_comp_num(int num) { compare_fields_num_ = num; }
+
+  const std::vector<AttrComparator> &attr_comparator() const { return attr_comparators_; }
 
   int operator()(const char *v1, const char *v2) const
   {
-    int result = attr_comparator_(v1, v2);
-    if (result != 0) {
-      return result;
+    LOG_DEBUG("start key comparator!compare fields num = %d,index fields num = %d",compare_fields_num_,index_fields_num_);
+    int result;
+    int offset = 0;
+    for (int i = 0; i < compare_fields_num_; i++) {
+      if (i > 0) {
+        offset += attr_comparators_[i - 1].attr_length();
+      }
+
+      char *comp_value1 = (char *)malloc(attr_comparators_[i].attr_length());
+      memcpy(comp_value1, v1 + offset, attr_comparators_[i].attr_length());
+      char *comp_value2 = (char *)malloc(attr_comparators_[i].attr_length());
+      memcpy(comp_value2, v2 + offset, attr_comparators_[i].attr_length());
+      result = attr_comparators_[i](comp_value1, comp_value2);
+      free(comp_value1);
+      free(comp_value2);
+
+      // result = attr_comparators_[i](v1+offset,v2+offset);
+      if (result != 0) {
+        return result;
+      }
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
-    const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
+    // if (!index_scan) {
+    // LOG_DEBUG("use rid comparator!");
+    const RID *rid1 = (const RID *)(v1 + total_length_);
+    // LOG_DEBUG("rid1 :%s",rid1->to_string());
+    const RID *rid2 = (const RID *)(v2 + total_length_);
+    // LOG_DEBUG("rid2 :%s",rid2->to_string());
     return RID::compare(rid1, rid2);
+    // } else {
+    //   LOG_DEBUG("compare result = %d",result);
+    //   return result;
+    // }
   }
 
 private:
-  AttrComparator attr_comparator_;
+  std::vector<AttrComparator> attr_comparators_;
+  int                         total_length_;
+  int                         compare_fields_num_;
+  int                         index_fields_num_;
+  // bool                        index_scan = false;
 };
 
 /**
  * @brief 属性打印,调试使用(BplusTree)
  * @ingroup BPlusTree
  */
-class AttrPrinter 
+class AttrPrinter
 {
 public:
   void init(AttrType type, int length)
   {
-    attr_type_ = type;
+    attr_type_   = type;
     attr_length_ = length;
   }
 
-  int attr_length() const
-  {
-    return attr_length_;
-  }
+  int attr_length() const { return attr_length_; }
 
   std::string operator()(const char *v) const
   {
@@ -173,38 +213,51 @@ public:
 
 private:
   AttrType attr_type_;
-  int attr_length_;
+  int      attr_length_;
 };
 
 /**
  * @brief 键值打印,调试使用(BplusTree)
  * @ingroup BPlusTree
  */
-class KeyPrinter 
+class KeyPrinter
 {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
-    attr_printer_.init(type, length);
+    for (int i = 0; i < type.size(); i++) {
+      AttrPrinter tmp;
+      tmp.init(type[i], length[i]);
+      attr_printer_.emplace_back(tmp);
+    }
   }
 
-  const AttrPrinter &attr_printer() const
-  {
-    return attr_printer_;
-  }
+  const std::vector<AttrPrinter> &attr_printer() const { return attr_printer_; }
 
   std::string operator()(const char *v) const
   {
     std::stringstream ss;
-    ss << "{key:" << attr_printer_(v) << ",";
+    int               offset       = 0;
+    int               total_length = 0;
+    for (int i = 0; i < attr_printer_.size(); i++) {
+      if (i > 0) {
+        offset += attr_printer_[i - 1].attr_length();
+      }
+      if (i < attr_printer_.size() - 1) {
+        ss << "{key:" << attr_printer_[i](v + offset) << ",";
+      } else {
+        ss << "{key:" << attr_printer_[i](v + offset);
+      }
+      total_length += attr_printer_[i].attr_length();
+    }
 
-    const RID *rid = (const RID *)(v + attr_printer_.attr_length());
+    const RID *rid = (const RID *)(v + total_length);
     ss << "rid:{" << rid->to_string() << "}}";
     return ss.str();
   }
 
 private:
-  AttrPrinter attr_printer_;
+  std::vector<AttrPrinter> attr_printer_;
 };
 
 /**
@@ -213,33 +266,35 @@ private:
  * @details this is the first page of bplus tree.
  * only one field can be supported, can you extend it to multi-fields?
  */
-struct IndexFileHeader 
+struct IndexFileHeader
 {
   IndexFileHeader()
   {
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
-  PageNum root_page;          ///< 根节点在磁盘中的页号
-  int32_t internal_max_size;  ///< 内部节点最大的键值对数
-  int32_t leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t attr_length;        ///< 键值的长度
-  int32_t key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;         ///< 键值的类型
+  PageNum               root_page;          ///< 根节点在磁盘中的页号
+  int32_t               internal_max_size;  ///< 内部节点最大的键值对数
+  int32_t               leaf_max_size;      ///< 叶子节点最大的键值对数
+  int32_t               total_attr_length;  ///< 键值的长度
+  int32_t               key_length;         ///< total_attr_length + sizeof(RID)
+  std::vector<AttrType> attr_type;          ///< 键值的类型
+  std::vector<int32_t>  attr_length;
+  std::vector<int32_t>  attr_offset;
 
-  const std::string to_string()
-  {
-    std::stringstream ss;
+  // const std::string to_string()
+  // {
+  //   std::stringstream ss;
 
-    ss << "attr_length:" << attr_length << ","
-       << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type << ","
-       << "root_page:" << root_page << ","
-       << "internal_max_size:" << internal_max_size << ","
-       << "leaf_max_size:" << leaf_max_size << ";";
+  //   ss << "attr_length:" << attr_length << ","
+  //      << "key_length:" << key_length << ","
+  //      << "attr_type:" << attr_type << ","
+  //      << "root_page:" << root_page << ","
+  //      << "internal_max_size:" << internal_max_size << ","
+  //      << "leaf_max_size:" << leaf_max_size << ";";
 
-    return ss.str();
-  }
+  //   return ss.str();
+  // }
 };
 
 /**
@@ -248,9 +303,9 @@ struct IndexFileHeader
  * @code
  * storage format:
  * | page type | item number | parent page id |
- * @endcode 
+ * @endcode
  */
-struct IndexNode 
+struct IndexNode
 {
   static constexpr int HEADER_SIZE = 12;
 
@@ -266,13 +321,13 @@ struct IndexNode
  * storage format:
  * | common header | prev page id | next page id |
  * | key0, rid0 | key1, rid1 | ... | keyn, ridn |
- * @endcode 
+ * @endcode
  * the key is in format: the key value of record and rid.
  * so the key in leaf page must be unique.
  * the value is rid.
  * can you implenment a cluster index ?
  */
-struct LeafIndexNode : public IndexNode 
+struct LeafIndexNode : public IndexNode
 {
   static constexpr int HEADER_SIZE = IndexNode::HEADER_SIZE + 4;
 
@@ -294,7 +349,7 @@ struct LeafIndexNode : public IndexNode
  * the first key is ignored(key0).
  * so it will waste space, can you fix this?
  */
-struct InternalIndexNode : public IndexNode 
+struct InternalIndexNode : public IndexNode
 {
   static constexpr int HEADER_SIZE = IndexNode::HEADER_SIZE;
 
@@ -310,7 +365,7 @@ struct InternalIndexNode : public IndexNode
  * IndexNodeHandler 负责对IndexNode做各种操作。
  * 作为一个类来说，虚函数会影响“结构体”真实的内存布局，所以将数据存储与操作分开
  */
-class IndexNodeHandler 
+class IndexNodeHandler
 {
 public:
   IndexNodeHandler(const IndexFileHeader &header, Frame *frame);
@@ -323,11 +378,11 @@ public:
   int  value_size() const;
   int  item_size() const;
 
-  void increase_size(int n);
-  int  size() const;
-  int  max_size() const;
-  int  min_size() const;
-  void set_parent_page_num(PageNum page_num);
+  void    increase_size(int n);
+  int     size() const;
+  int     max_size() const;
+  int     min_size() const;
+  void    set_parent_page_num(PageNum page_num);
   PageNum parent_page_num() const;
   PageNum page_num() const;
 
@@ -339,22 +394,22 @@ public:
 
 protected:
   const IndexFileHeader &header_;
-  PageNum page_num_;
-  IndexNode *node_;
+  PageNum                page_num_;
+  IndexNode             *node_;
 };
 
 /**
  * @brief 叶子节点的操作
  * @ingroup BPlusTree
  */
-class LeafIndexNodeHandler : public IndexNodeHandler 
+class LeafIndexNodeHandler : public IndexNodeHandler
 {
 public:
   LeafIndexNodeHandler(const IndexFileHeader &header, Frame *frame);
   virtual ~LeafIndexNodeHandler() = default;
 
-  void init_empty();
-  void set_next_page(PageNum page_num);
+  void    init_empty();
+  void    set_next_page(PageNum page_num);
   PageNum next_page() const;
 
   char *key_at(int index);
@@ -369,9 +424,9 @@ public:
   void insert(int index, const char *key, const char *value);
   void remove(int index);
   int  remove(const char *key, const KeyComparator &comparator);
-  RC move_half_to(LeafIndexNodeHandler &other, DiskBufferPool *bp);
-  RC move_first_to_end(LeafIndexNodeHandler &other, DiskBufferPool *disk_buffer_pool);
-  RC move_last_to_front(LeafIndexNodeHandler &other, DiskBufferPool *bp);
+  RC   move_half_to(LeafIndexNodeHandler &other, DiskBufferPool *bp);
+  RC   move_first_to_end(LeafIndexNodeHandler &other, DiskBufferPool *disk_buffer_pool);
+  RC   move_last_to_front(LeafIndexNodeHandler &other, DiskBufferPool *bp);
   /**
    * move all items to left page
    */
@@ -397,7 +452,7 @@ private:
  * @brief 内部节点的操作
  * @ingroup BPlusTree
  */
-class InternalIndexNodeHandler : public IndexNodeHandler 
+class InternalIndexNodeHandler : public IndexNodeHandler
 {
 public:
   InternalIndexNodeHandler(const IndexFileHeader &header, Frame *frame);
@@ -406,15 +461,15 @@ public:
   void init_empty();
   void create_new_root(PageNum first_page_num, const char *key, PageNum page_num);
 
-  void insert(const char *key, PageNum page_num, const KeyComparator &comparator);
-  RC move_half_to(LeafIndexNodeHandler &other, DiskBufferPool *bp);
-  char *key_at(int index);
+  void    insert(const char *key, PageNum page_num, const KeyComparator &comparator);
+  RC      move_half_to(LeafIndexNodeHandler &other, DiskBufferPool *bp);
+  char   *key_at(int index);
   PageNum value_at(int index);
 
   /**
    * 返回指定子节点在当前节点中的索引
    */
-  int value_index(PageNum page_num);
+  int  value_index(PageNum page_num);
   void set_key_at(int index, const char *key);
   void remove(int index);
 
@@ -426,10 +481,8 @@ public:
    * @param[out] found 如果是有效指针，将会返回当前是否存在指定的键值
    * @param[out] insert_position 如果是有效指针，将会返回可以插入指定键值的位置
    */
-  int lookup(const KeyComparator &comparator, 
-             const char *key, 
-             bool *found = nullptr, 
-             int *insert_position = nullptr) const;
+  int lookup(
+      const KeyComparator &comparator, const char *key, bool *found = nullptr, int *insert_position = nullptr) const;
 
   RC move_to(InternalIndexNodeHandler &other, DiskBufferPool *disk_buffer_pool);
   RC move_first_to_end(InternalIndexNodeHandler &other, DiskBufferPool *disk_buffer_pool);
@@ -461,18 +514,15 @@ private:
  * @brief B+树的实现
  * @ingroup BPlusTree
  */
-class BplusTreeHandler 
+class BplusTreeHandler
 {
 public:
   /**
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, 
-            AttrType attr_type, 
-            int attr_length, 
-            int internal_max_size = -1, 
-            int leaf_max_size = -1);
+  RC create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
+      std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * 打开名为fileName的索引文件。
@@ -480,6 +530,7 @@ public:
    * 索引句柄用于在索引中插入或删除索引项，也可用于索引的扫描
    */
   RC open(const char *file_name);
+  RC open(const char *file_name, const std::vector<const FieldMeta *> field_meta);
 
   /**
    * 关闭句柄indexHandle对应的索引文件
@@ -539,14 +590,13 @@ private:
 protected:
   RC find_leaf(LatchMemo &latch_memo, BplusTreeOperationType op, const char *key, Frame *&frame);
   RC left_most_page(LatchMemo &latch_memo, Frame *&frame);
-  RC find_leaf_internal(LatchMemo &latch_memo, BplusTreeOperationType op, 
-                        const std::function<PageNum(InternalIndexNodeHandler &)> &child_page_getter, 
-                        Frame *&frame);
-  RC crabing_protocal_fetch_page(LatchMemo &latch_memo, BplusTreeOperationType op, PageNum page_num, bool is_root_page,
-                                 Frame *&frame);
+  RC find_leaf_internal(LatchMemo &latch_memo, BplusTreeOperationType op,
+      const std::function<PageNum(InternalIndexNodeHandler &)> &child_page_getter, Frame *&frame);
+  RC crabing_protocal_fetch_page(
+      LatchMemo &latch_memo, BplusTreeOperationType op, PageNum page_num, bool is_root_page, Frame *&frame);
 
-  RC insert_into_parent(LatchMemo &latch_memo, PageNum parent_page, Frame *left_frame, const char *pkey, 
-                        Frame &right_frame);
+  RC insert_into_parent(
+      LatchMemo &latch_memo, PageNum parent_page, Frame *left_frame, const char *pkey, Frame &right_frame);
 
   RC delete_entry_internal(LatchMemo &latch_memo, Frame *leaf_frame, const char *key);
 
@@ -570,19 +620,20 @@ protected:
 
 private:
   common::MemPoolItem::unique_ptr make_key(const char *user_key, const RID &rid);
-  void free_key(char *key);
+  common::MemPoolItem::unique_ptr make_compare_key(const char *user_key, const RID &rid);
+  void                            free_key(char *key);
 
 protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;
-  bool            header_dirty_ = false; // 
+  bool            header_dirty_     = false;  //
   IndexFileHeader file_header_;
 
   // 在调整根节点时，需要加上这个锁。
   // 这个锁可以使用递归读写锁，但是这里偷懒先不改
-  common::SharedMutex   root_lock_;
+  common::SharedMutex root_lock_;
 
-  KeyComparator   key_comparator_;
-  KeyPrinter      key_printer_;
+  KeyComparator key_comparator_;
+  KeyPrinter    key_printer_;
 
   std::unique_ptr<common::MemPoolItem> mem_pool_item_;
 
@@ -595,7 +646,7 @@ private:
  * @brief B+树的扫描器
  * @ingroup BPlusTree
  */
-class BplusTreeScanner 
+class BplusTreeScanner
 {
 public:
   BplusTreeScanner(BplusTreeHandler &tree_handler);
@@ -610,8 +661,8 @@ public:
    * @param right_len right_user_key 的内存大小(只有在变长字段中才会关注)
    * @param right_inclusive 右边界的值是否包含在内
    */
-  RC open(const char *left_user_key, int left_len, bool left_inclusive, 
-          const char *right_user_key, int right_len, bool right_inclusive);
+  RC open(const char *left_user_key, int left_len, bool left_inclusive, const char *right_user_key, int right_len,
+      bool right_inclusive, int comp_num = 1);
 
   RC next_entry(RID &rid);
 
@@ -627,7 +678,7 @@ private:
   bool touch_end();
 
 private:
-  bool inited_ = false;
+  bool              inited_ = false;
   BplusTreeHandler &tree_handler_;
 
   LatchMemo latch_memo_;
@@ -637,6 +688,6 @@ private:
   Frame *current_frame_ = nullptr;
 
   common::MemPoolItem::unique_ptr right_key_;
-  int iter_index_ = -1;
-  bool first_emitted_ = false;
+  int                             iter_index_    = -1;
+  bool                            first_emitted_ = false;
 };

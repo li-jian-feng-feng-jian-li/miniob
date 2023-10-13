@@ -13,7 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include <utility>
-
+#include "storage/index/index.h"
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/table_scan_physical_operator.h"
@@ -36,6 +36,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/expr/expression.h"
 #include "common/log/log.h"
+#include "map"
 
 using namespace std;
 
@@ -90,12 +91,17 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, unique_ptr<PhysicalOperator> &oper)
 {
   vector<unique_ptr<Expression>> &predicates = table_get_oper.predicates();
+  std::reverse(predicates.begin(), predicates.end());
   // 看看是否有可以用于索引查找的表达式
   Table *table = table_get_oper.table();
 
-  Index     *index      = nullptr;
-  ValueExpr *value_expr = nullptr;
-  for (auto &expr : predicates) {
+  Index             *index       = nullptr;
+  int                index_index = 0;
+  int                total_len   = 0;
+  std::vector<Value> index_value;
+  for (int i = 0; i < predicates.size(); i++) {
+    ValueExpr *value_expr = nullptr;
+    auto      &expr       = predicates[i];
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
@@ -127,22 +133,99 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
 
       const Field &field = field_expr->field();
       index              = table->find_index_by_field(field.field_name());
+
       if (nullptr != index) {
+        index_index = i;
+        index_value.emplace_back(value_expr->get_value());
+        LOG_DEBUG("index key add a value %d",value_expr->get_value().get_int());
+        total_len += value_expr->get_value().length();
         break;
       }
     }
   }
 
   if (index != nullptr) {
-    ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+    // ASSERT(index_value[0], "got an index but value expr is null ?");
+    const std::vector<std::string> fields = index->index_meta().fields();
+    if (fields.size() == 1) {
+      // single index
+      const Value               &value           = index_value[0];
+      IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(
+          table, index, table_get_oper.readonly(), &value, true /*left_inclusive*/, &value, true /*right_inclusive*/);
 
-    const Value               &value           = value_expr->get_value();
-    IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(
-        table, index, table_get_oper.readonly(), &value, true /*left_inclusive*/, &value, true /*right_inclusive*/);
+      index_scan_oper->set_predicates(std::move(predicates));
+      oper = unique_ptr<PhysicalOperator>(index_scan_oper);
+      LOG_TRACE("use single index scan");
+    } else {
+      // mutiple index
+      // do not optimize the order
+      int comp_num    = 1;
+      int index_order = 1;
+      LOG_DEBUG("find index start from %d,predicates size = %d",index_index,predicates.size());
+      for (int i = index_index + 1; i < predicates.size(); i++) {
+        auto &expr = predicates[i];
 
-    index_scan_oper->set_predicates(std::move(predicates));
-    oper = unique_ptr<PhysicalOperator>(index_scan_oper);
-    LOG_TRACE("use index scan");
+        if (expr->type() == ExprType::COMPARISON) {
+          auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
+          // 简单处理，就找等值查询
+          if (comparison_expr->comp() != EQUAL_TO) {
+            continue;
+          }
+
+          unique_ptr<Expression> &left_expr  = comparison_expr->left();
+          unique_ptr<Expression> &right_expr = comparison_expr->right();
+          // 左右比较的一边最少是一个值
+          if (left_expr->type() != ExprType::VALUE && right_expr->type() != ExprType::VALUE) {
+            continue;
+          }
+
+          ValueExpr *value_expr = nullptr;
+          FieldExpr *field_expr = nullptr;
+          if (left_expr->type() == ExprType::FIELD) {
+            ASSERT(right_expr->type() == ExprType::VALUE, "right expr should be a value expr while left is field expr");
+            field_expr = static_cast<FieldExpr *>(left_expr.get());
+            value_expr = static_cast<ValueExpr *>(right_expr.get());
+          } else if (right_expr->type() == ExprType::FIELD) {
+            ASSERT(
+                left_expr->type() == ExprType::VALUE, "left expr should be a value expr while right is a field expr");
+            field_expr = static_cast<FieldExpr *>(right_expr.get());
+            value_expr = static_cast<ValueExpr *>(left_expr.get());
+          }
+
+          if (field_expr == nullptr) {
+            continue;
+          }
+
+          const Field &field = field_expr->field();
+
+          if (0 == strcmp(field.field_name(), fields[index_order].c_str())) {
+            comp_num++;
+            index_order++;
+            index_value.emplace_back(value_expr->get_value());
+            LOG_DEBUG("index key add a value %d",value_expr->get_value().get_int());
+            total_len += value_expr->get_value().length();
+          } else {
+            LOG_INFO("next mutiple index field should be:%s,now is %s",fields[index_order],field.field_name());
+            break;
+          }
+        }
+      }
+
+      char *values     = (char *)malloc(total_len);
+      int   key_offset = 0;
+      LOG_DEBUG("index key contains %d fields.",index_value.size());
+      for (int i = 0; i < index_value.size(); i++) {
+        memcpy(values + key_offset, index_value[i].data(), index_value[i].length());
+        LOG_DEBUG("add value %d", *(int *)((void *)(values+key_offset)));
+        key_offset += index_value[i].length();
+      }
+      LOG_DEBUG("values size %d",sizeof(values) );
+      IndexScanPhysicalOperator *index_scan_oper =
+          new IndexScanPhysicalOperator(table, index, table_get_oper.readonly(), values, comp_num);
+      index_scan_oper->set_predicates(std::move(predicates));
+      oper = unique_ptr<PhysicalOperator>(index_scan_oper);
+      LOG_TRACE("use multiple index scan");
+    }
   } else {
     auto table_scan_oper = new TableScanPhysicalOperator(table, table_get_oper.readonly());
     table_scan_oper->set_predicates(std::move(predicates));
@@ -211,7 +294,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
 RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique_ptr<PhysicalOperator> &oper)
 {
   Table                  *table           = insert_oper.table();
-  vector<vector<Value> >         &values          = insert_oper.values_vecs();
+  vector<vector<Value>>  &values          = insert_oper.values_vecs();
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;

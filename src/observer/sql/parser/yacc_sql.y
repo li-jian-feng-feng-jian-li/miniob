@@ -79,6 +79,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         STRING_T
         FLOAT_T
         DATE_T
+        TEXT_T
         HELP
         EXIT
         DOT //QUOTE
@@ -118,6 +119,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
+  std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
   char *                            string;
   int                               number;
@@ -148,6 +150,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
+%type <id_list>             id_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -266,16 +269,35 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE INDEX ID ON ID LBRACE ID id_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $3;
       create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      if( $8 != nullptr){
+        create_index.attribute_name.swap( *$8);
+      }
+      create_index.attribute_name.emplace_back($7);
+      std::reverse(create_index.attribute_name.begin(),create_index.attribute_name.end());
       free($3);
       free($5);
-      free($7);
+    }
+    ;
+
+  id_list:
+  /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA ID id_list {
+      if($3 != nullptr){
+        $$ = $3;
+      } else {
+        $$ = new std::vector<std::string>;
+      }
+      $$->emplace_back($2);
+      std::reverse($$->begin(),$$->end());
     }
     ;
 
@@ -342,6 +364,15 @@ attr_def:
       $$->length = 4;
       free($1);
     }
+    | ID TEXT_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = CHARS;
+      $$->name = $1;
+      /*change the length of type,default*/
+      $$->length = 4096;
+      free($1);
+    }
     ;
 number:
     NUMBER {$$ = $1;}
@@ -350,8 +381,7 @@ type:
     INT_T      { $$=INTS; }
     | STRING_T { $$=CHARS; }
     | FLOAT_T  { $$=FLOATS; }
-    | DATE_T   { $$=DATES; }
-    
+    | DATE_T   { $$=DATES; }    
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE value_lists 

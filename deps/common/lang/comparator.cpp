@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <string.h>
 #include <algorithm>
 #include "common/defs.h"
+#include "common/log/log.h"
 
 namespace common {
 
@@ -23,6 +24,8 @@ int compare_int(void *arg1, void *arg2)
 {
   int v1 = *(int *)arg1;
   int v2 = *(int *)arg2;
+  LOG_DEBUG("v1 is %d",v1);
+  LOG_DEBUG("v2 is %d",v2);
   return v1 - v2;
 }
 

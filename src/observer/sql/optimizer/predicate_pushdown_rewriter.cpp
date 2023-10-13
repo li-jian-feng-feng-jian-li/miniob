@@ -61,6 +61,7 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
     change_made = true;
     table_get_oper->set_predicates(std::move(pushdown_exprs));
   }
+
   return rc;
 }
 

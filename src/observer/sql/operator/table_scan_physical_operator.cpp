@@ -84,6 +84,7 @@ RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
 {
   RC rc = RC::SUCCESS;
   Value value;
+  LOG_DEBUG("start filter!");
   for (unique_ptr<Expression> &expr : predicates_) {
     rc = expr->get_value(tuple, value);
     if (rc != RC::SUCCESS) {

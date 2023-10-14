@@ -119,6 +119,7 @@ public:
   }
   // void start_index_scan() { index_scan = true; }
   void set_comp_num(int num) { compare_fields_num_ = num; }
+  int  get_gomp_num() { return compare_fields_num_; }
 
   const std::vector<AttrComparator> &attr_comparator() const { return attr_comparators_; }
 
@@ -559,7 +560,9 @@ public:
    * @param key_len user_key的长度
    * @param rid  返回值，记录记录所在的页面号和slot
    */
-  RC get_entry(const char *user_key, int key_len, std::list<RID> &rids);
+
+  // remove func
+  // RC get_entry(const char *user_key, int key_len, std::list<RID> &rids);
 
   RC sync();
 
@@ -621,7 +624,8 @@ protected:
 private:
   common::MemPoolItem::unique_ptr make_key(const char *user_key, const RID &rid);
   common::MemPoolItem::unique_ptr make_compare_key(const char *user_key, const RID &rid);
-  void                            free_key(char *key);
+  // common::MemPoolItem::unique_ptr make_compare_key(std::vector<Value> *user_key, const RID &rid);
+  void free_key(char *key);
 
 protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;
@@ -661,8 +665,11 @@ public:
    * @param right_len right_user_key 的内存大小(只有在变长字段中才会关注)
    * @param right_inclusive 右边界的值是否包含在内
    */
-  RC open(const char *left_user_key, int left_len, bool left_inclusive, const char *right_user_key, int right_len,
-      bool right_inclusive, int comp_num = 1);
+  // RC open(const char *left_user_key, int left_len, bool left_inclusive, const char *right_user_key, int right_len,
+  //     bool right_inclusive, int comp_num = 1);
+
+  RC open(std::vector<Value> *left_user_key, std::vector<bool> *left_inclusive, std::vector<Value> *right_user_key,
+      std::vector<bool> *right_inclusive, int comp_num = 1);
 
   RC next_entry(RID &rid);
 
@@ -672,7 +679,8 @@ private:
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive);
+  RC fix_user_key(
+      const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive, int i);
 
   void fetch_item(RID &rid);
   bool touch_end();

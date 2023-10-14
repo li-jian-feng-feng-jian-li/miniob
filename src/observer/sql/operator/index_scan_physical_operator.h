@@ -25,10 +25,10 @@ See the Mulan PSL v2 for more details. */
 class IndexScanPhysicalOperator : public PhysicalOperator
 {
 public:
-  IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const Value *left_value, bool left_inclusive,
-      const Value *right_value, bool right_inclusive, int comp_num = 1);
+  IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, std::vector<Value> left_value, std::vector<bool> left_inclusive,
+      std::vector<Value>  right_value, std::vector<bool> right_inclusive, int comp_num = 1);
 
-  IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const char *values, int comp_num = 1);
+  // IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const char *values, int comp_num = 1);
 
   virtual ~IndexScanPhysicalOperator() = default;
 
@@ -60,12 +60,12 @@ private:
   Record            current_record_;
   RowTuple          tuple_;
 
-  Value                                    left_value_;
-  Value                                    right_value_;
-  bool                                     left_inclusive_  = false;
-  bool                                     right_inclusive_ = false;
-  const char                              *values_          = nullptr;
-  int                                      comp_num_        = 1;
-  bool                                     is_multiple      = false;
+  std::vector<Value> left_value_;
+  std::vector<Value> right_value_;
+  std::vector<bool>              left_inclusive_  ;
+  std::vector<bool>              right_inclusive_ ;
+  // const char                              *values_          = nullptr;
+  int comp_num_ = 1;
+  // bool                                     is_multiple      = false;
   std::vector<std::unique_ptr<Expression>> predicates_;
 };

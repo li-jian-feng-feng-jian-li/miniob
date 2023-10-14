@@ -70,8 +70,8 @@ RC BplusTreeIndex::open(
   LOG_DEBUG("finish init index!");
 
   LOG_DEBUG("start open index_handler!");
-  //TODO solve bug
-  RC rc = index_handler_.open(file_name,field_meta);
+  // TODO solve bug
+  RC rc = index_handler_.open(file_name, field_meta);
   LOG_DEBUG("finish open index_handler!");
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to open index_handler, file_name:%s, index:%s, rc:%s",
@@ -80,7 +80,6 @@ RC BplusTreeIndex::open(
         strrc(rc));
     return rc;
   }
-
 
   inited_ = true;
   LOG_INFO(
@@ -101,7 +100,7 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  RC  rc           = RC::SUCCESS;
+  RC rc = RC::SUCCESS;
   // int key_offset   = 0;
   // int total_length = 0;
   // for (int i = 0; i < field_metas_.size(); i++) {
@@ -142,11 +141,12 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
   return index_handler_.delete_entry(record, rid);
 }
 
-IndexScanner *BplusTreeIndex::create_scanner(
-    const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len, bool right_inclusive, int comp_num)
+IndexScanner *BplusTreeIndex::create_scanner(std::vector<Value> *left_key, std::vector<bool> *left_inclusive,
+    std::vector<Value> *right_key, std::vector<bool> *right_inclusive, int comp_num)
 {
   BplusTreeIndexScanner *index_scanner = new BplusTreeIndexScanner(index_handler_);
-  RC rc = index_scanner->open(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive, comp_num);
+  LOG_DEBUG("open index scanner!");
+  RC                     rc = index_scanner->open(left_key, left_inclusive, right_key, right_inclusive, comp_num);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open index scanner. rc=%d:%s", rc, strrc(rc));
     delete index_scanner;
@@ -155,7 +155,6 @@ IndexScanner *BplusTreeIndex::create_scanner(
   return index_scanner;
 }
 
-
 RC BplusTreeIndex::sync() { return index_handler_.sync(); }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -163,12 +162,11 @@ BplusTreeIndexScanner::BplusTreeIndexScanner(BplusTreeHandler &tree_handler) : t
 
 BplusTreeIndexScanner::~BplusTreeIndexScanner() noexcept { tree_scanner_.close(); }
 
-RC BplusTreeIndexScanner::open(
-    const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len, bool right_inclusive, int comp_num)
+RC BplusTreeIndexScanner::open(std::vector<Value> *left_key, std::vector<bool> *left_inclusive,
+    std::vector<Value> *right_key, std::vector<bool> *right_inclusive, int comp_num)
 {
-  return tree_scanner_.open(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive, comp_num);
+  return tree_scanner_.open(left_key, left_inclusive, right_key, right_inclusive, comp_num);
 }
-
 
 RC BplusTreeIndexScanner::next_entry(RID *rid) { return tree_scanner_.next_entry(*rid); }
 

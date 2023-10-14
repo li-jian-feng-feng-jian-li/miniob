@@ -106,7 +106,7 @@ void Value::set_boolean(bool val)
 }
 void Value::set_string(const char *s, int len /*= 0*/)
 {
-  LOG_DEBUG("set_string() calls!");
+  LOG_DEBUG("set_string() calls!len is %d",len);
   attr_type_ = CHARS;
   if (len > 0) {
     len = strnlen(s, len);
@@ -115,6 +115,7 @@ void Value::set_string(const char *s, int len /*= 0*/)
     str_value_.assign(s);
   }
   length_ = str_value_.length();
+  LOG_DEBUG("now str is %s,len is %d",str_value_.c_str(),length_);
 }
 // TODO
 void Value::set_date(const char *s, int len)

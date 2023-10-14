@@ -250,6 +250,7 @@ RC Table::insert_record(Record &record)
 {
   RC rc = RC::SUCCESS;
   rc    = record_handler_->insert_record(record.data(), table_meta_.record_size(), &record.rid());
+  LOG_DEBUG("record inserted!");
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
     return rc;

@@ -45,9 +45,12 @@ int compare_float(void *arg1, void *arg2)
 
 int compare_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_length)
 {
+  LOG_DEBUG("start compare string!");
   const char *s1 = (const char *)arg1;
   const char *s2 = (const char *)arg2;
   int maxlen = std::min(arg1_max_length, arg2_max_length);
+  LOG_DEBUG("maxlen is %d",maxlen);
+  LOG_DEBUG("begin strncmp!");
   int result = strncmp(s1, s2, maxlen);
   if (0 != result) {
     return result;

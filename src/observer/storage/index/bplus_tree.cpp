@@ -1352,7 +1352,7 @@ MemPoolItem::unique_ptr BplusTreeHandler::make_key(const char *user_key, const R
   // memcpy(static_cast<char *>(key.get()), user_key, file_header_.total_attr_length);
   // memcpy(static_cast<char *>(key.get()) + file_header_.total_attr_length, &rid, sizeof(rid));
   // return key;
-
+  // LOG_DEBUG("char key is %s",*user_key);
   int key_offset = 0;
   int size       = file_header_.attr_type.size();
   for (int i = 0; i < size; i++) {
@@ -1370,6 +1370,26 @@ MemPoolItem::unique_ptr BplusTreeHandler::make_key(const char *user_key, const R
   return key;
 }
 
+// MemPoolItem::unique_ptr BplusTreeHandler::make_compare_key(const char *user_key, const RID &rid)
+// {
+//   MemPoolItem::unique_ptr key = mem_pool_item_->alloc_unique_ptr();
+//   if (key == nullptr) {
+//     LOG_WARN("Failed to alloc memory for key.");
+//     return nullptr;
+//   }
+
+//   // char *key = (char *)malloc(file_header_.key_length);
+//   // LOG_DEBUG("file_header_.key_length = %d",file_header_.key_length);
+//   // LOG_DEBUG("init key size = %d",sizeof(key));
+//   memcpy(static_cast<char *>(key.get()), user_key, sizeof(user_key));
+//   memset(static_cast<char *>(key.get()) + sizeof(user_key), 0, file_header_.total_attr_length - sizeof(user_key));
+//   memcpy(static_cast<char *>(key.get()) + file_header_.total_attr_length, &rid, sizeof(rid));
+//   LOG_DEBUG("rid size = %d",sizeof(rid));
+//   LOG_DEBUG("key_size = %d",sizeof(key));
+
+//   return key;
+// }
+
 MemPoolItem::unique_ptr BplusTreeHandler::make_compare_key(const char *user_key, const RID &rid)
 {
   MemPoolItem::unique_ptr key = mem_pool_item_->alloc_unique_ptr();
@@ -1381,8 +1401,9 @@ MemPoolItem::unique_ptr BplusTreeHandler::make_compare_key(const char *user_key,
   // char *key = (char *)malloc(file_header_.key_length);
   // LOG_DEBUG("file_header_.key_length = %d",file_header_.key_length);
   // LOG_DEBUG("init key size = %d",sizeof(key));
-  memcpy(static_cast<char *>(key.get()), user_key, sizeof(user_key));
-  memset(static_cast<char *>(key.get()) + sizeof(user_key), 0, file_header_.total_attr_length - sizeof(user_key));
+  // memcpy(static_cast<char *>(key.get()), user_key, sizeof(user_key));
+  memcpy(static_cast<char *>(key.get()), user_key, file_header_.total_attr_length);
+  // memset(static_cast<char *>(key.get()) + sizeof(user_key), 0, file_header_.total_attr_length - sizeof(user_key));
   memcpy(static_cast<char *>(key.get()) + file_header_.total_attr_length, &rid, sizeof(rid));
   LOG_DEBUG("rid size = %d",sizeof(rid));
   LOG_DEBUG("key_size = %d",sizeof(key));
@@ -1403,6 +1424,9 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return RC::NOMEM;
   }
   // reset compare field nums
+  //when we insert ,we need to compare total index key
+  //but when we get next record by index scan,we need to compare index key offerd by 'where' condition
+  int old_index_filed_nums = key_comparator_.get_gomp_num();
   key_comparator_.reset();
 
   char *key = static_cast<char *>(pkey.get());
@@ -1433,31 +1457,33 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
   }
 
   LOG_TRACE("insert entry success");
+  key_comparator_.set_comp_num(old_index_filed_nums);
   return RC::SUCCESS;
 }
 
-RC BplusTreeHandler::get_entry(const char *user_key, int key_len, std::list<RID> &rids)
-{
-  BplusTreeScanner scanner(*this);
-  RC rc = scanner.open(user_key, key_len, true /*left_inclusive*/, user_key, key_len, true /*right_inclusive*/);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to open scanner. rc=%s", strrc(rc));
-    return rc;
-  }
+// remove func
+//  RC BplusTreeHandler::get_entry(const char *user_key, int key_len, std::list<RID> &rids)
+//  {
+//    BplusTreeScanner scanner(*this);
+//    RC rc = scanner.open(user_key, key_len, true /*left_inclusive*/, user_key, key_len, true /*right_inclusive*/);
+//    if (rc != RC::SUCCESS) {
+//      LOG_WARN("failed to open scanner. rc=%s", strrc(rc));
+//      return rc;
+//    }
 
-  RID rid;
-  while ((rc = scanner.next_entry(rid)) == RC::SUCCESS) {
-    rids.push_back(rid);
-  }
+//   RID rid;
+//   while ((rc = scanner.next_entry(rid)) == RC::SUCCESS) {
+//     rids.push_back(rid);
+//   }
 
-  scanner.close();
-  if (rc != RC::RECORD_EOF) {
-    LOG_WARN("scanner return error. rc=%s", strrc(rc));
-  } else {
-    rc = RC::SUCCESS;
-  }
-  return rc;
-}
+//   scanner.close();
+//   if (rc != RC::RECORD_EOF) {
+//     LOG_WARN("scanner return error. rc=%s", strrc(rc));
+//   } else {
+//     rc = RC::SUCCESS;
+//   }
+//   return rc;
+// }
 
 RC BplusTreeHandler::adjust_root(LatchMemo &latch_memo, Frame *root_frame)
 {
@@ -1662,8 +1688,8 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
   LatchMemo              latch_memo(disk_buffer_pool_);
 
   Frame *leaf_frame = nullptr;
-  
-  RC     rc         = find_leaf(latch_memo, op, static_cast<char *>(pkey.get()), leaf_frame);
+
+  RC rc = find_leaf(latch_memo, op, static_cast<char *>(pkey.get()), leaf_frame);
   if (rc == RC::EMPTY) {
     rc = RC::RECORD_NOT_EXIST;
     return rc;
@@ -1685,8 +1711,8 @@ BplusTreeScanner::BplusTreeScanner(BplusTreeHandler &tree_handler)
 
 BplusTreeScanner::~BplusTreeScanner() { close(); }
 
-RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inclusive, const char *right_user_key,
-    int right_len, bool right_inclusive, int comp_num)
+RC BplusTreeScanner::open(std::vector<Value> *left_user_key, std::vector<bool> *left_inclusive,
+    std::vector<Value> *right_user_key, std::vector<bool> *right_inclusive, int comp_num)
 {
   RC rc = RC::SUCCESS;
   if (inited_) {
@@ -1700,15 +1726,15 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   // tree_handler_.key_comparator_.start_index_scan();
 
   // 校验输入的键值是否是合法范围
-  if (left_user_key && right_user_key) {
-    const auto &key_comparator_ = tree_handler_.key_comparator_;
-    const int   result          = key_comparator_(left_user_key, right_user_key);
-    if (result > 0 ||  // left < right
-                       // left == right but is (left,right)/[left,right) or (left,right]
-        (result == 0 && (left_inclusive == false || right_inclusive == false))) {
-      return RC::INVALID_ARGUMENT;
-    }
-  }
+  // if (left_user_key && right_user_key) {
+  //   const auto &key_comparator_ = tree_handler_.key_comparator_;
+  //   const int   result          = key_comparator_(left_user_key, right_user_key);
+  //   if (result > 0 ||  // left < right
+  //                      // left == right but is (left,right)/[left,right) or (left,right]
+  //       (result == 0 && (left_inclusive == false || right_inclusive == false))) {
+  //     return RC::INVALID_ARGUMENT;
+  //   }
+  // }
 
   if (nullptr == left_user_key) {
     rc = tree_handler_.left_most_page(latch_memo_, current_frame_);
@@ -1720,32 +1746,42 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     iter_index_ = 0;
   } else {
     // TODO i do not know how to deal with it
-    char *fixed_left_key = const_cast<char *>(left_user_key);
-    // if (tree_handler_.file_header_.attr_type == CHARS) {
-    //   bool should_inclusive_after_fix = false;
-    //   rc = fix_user_key(left_user_key, left_len, true /*greater*/, &fixed_left_key, &should_inclusive_after_fix);
-    //   if (rc != RC::SUCCESS) {
-    //     LOG_WARN("failed to fix left user key. rc=%s", strrc(rc));
-    //     return rc;
-    //   }
+    LOG_DEBUG("try to fix left_user_key!");
+    char *values     = (char *)malloc(tree_handler_.file_header_.total_attr_length);
+    int   key_offset = 0;
+    for (auto p = left_user_key->begin(); p != left_user_key->end(); p++) {
+      char *fixed_left_key = const_cast<char *>((*p).data());
+      int   i              = std::distance(left_user_key->begin(), p);
+      if (tree_handler_.file_header_.attr_type[i] == CHARS) {
+        bool should_inclusive_after_fix = false;
+        rc =
+            fix_user_key((*p).data(), (*p).length(), true /*greater*/, &fixed_left_key, &should_inclusive_after_fix, i);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("failed to fix left user key. rc=%s", strrc(rc));
+          return rc;
+        }
+        // if (should_inclusive_after_fix) {
+        //   left_inclusive->at(i) = true;
+        // }
+      }
+      memcpy(values + key_offset, fixed_left_key, tree_handler_.file_header_.attr_length[i]);
+      LOG_DEBUG("make %d key!value is %d",i,*(int *)((void *)(values+key_offset)));
+      key_offset += tree_handler_.file_header_.attr_length[i];
+    }
 
-    //   if (should_inclusive_after_fix) {
-    //     left_inclusive = true;
-    //   }
-    // }
     MemPoolItem::unique_ptr left_pkey;
     if (left_inclusive) {
-      left_pkey = tree_handler_.make_compare_key(fixed_left_key, *RID::min());
+      left_pkey = tree_handler_.make_compare_key(values, *RID::min());
     } else {
-      left_pkey = tree_handler_.make_compare_key(fixed_left_key, *RID::max());
+      left_pkey = tree_handler_.make_compare_key(values, *RID::max());
     }
 
     const char *left_key = (const char *)left_pkey.get();
 
-    if (fixed_left_key != left_user_key) {
-      delete[] fixed_left_key;
-      fixed_left_key = nullptr;
-    }
+    // if (fixed_left_key != left_user_key) {
+    //   delete[] fixed_left_key;
+    //   fixed_left_key = nullptr;
+    // }
 
     rc = tree_handler_.find_leaf(latch_memo_, BplusTreeOperationType::READ, left_key, current_frame_);
     if (rc == RC::EMPTY) {
@@ -1786,30 +1822,39 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   if (nullptr == right_user_key) {
     right_key_ = nullptr;
   } else {
+    // char *fixed_right_key = const_cast<char *>(right_user_key);
+    char *values     = (char *)malloc(tree_handler_.file_header_.total_attr_length);
+    int   key_offset = 0;
+    for (auto p = right_user_key->begin(); p != right_user_key->end(); p++) {
+      char *fixed_right_key = const_cast<char *>((*p).data());
+      int   i               = std::distance(right_user_key->begin(), p);
+      if (tree_handler_.file_header_.attr_type[i] == CHARS) {
+        bool should_inclusive_after_fix = false;
+        rc                              = fix_user_key(
+            (*p).data(), (*p).length(), true /*greater*/, &fixed_right_key, &should_inclusive_after_fix, i);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("failed to fix right user key. rc=%s", strrc(rc));
+          return rc;
+        }
 
-    char *fixed_right_key = const_cast<char *>(right_user_key);
-    // bool  should_include_after_fix = false;
-    // if (tree_handler_.file_header_.attr_type == CHARS) {
-    //   rc = fix_user_key(right_user_key, right_len, false /*want_greater*/, &fixed_right_key,
-    //   &should_include_after_fix); if (rc != RC::SUCCESS) {
-    //     LOG_WARN("failed to fix right user key. rc=%s", strrc(rc));
-    //     return rc;
-    //   }
+        if (should_inclusive_after_fix) {
+          left_inclusive->at(i) = true;
+        }
+      }
+      memcpy(values + key_offset, fixed_right_key, tree_handler_.file_header_.attr_length[i]);
+      key_offset += tree_handler_.file_header_.attr_length[i];
+    }
 
-    //   if (should_include_after_fix) {
-    //     right_inclusive = true;
-    //   }
-    // }
     if (right_inclusive) {
-      right_key_ = tree_handler_.make_compare_key(fixed_right_key, *RID::max());
+      right_key_ = tree_handler_.make_compare_key(values, *RID::max());
     } else {
-      right_key_ = tree_handler_.make_compare_key(fixed_right_key, *RID::min());
+      right_key_ = tree_handler_.make_compare_key(values, *RID::min());
     }
 
-    if (fixed_right_key != right_user_key) {
-      delete[] fixed_right_key;
-      fixed_right_key = nullptr;
-    }
+    // if (fixed_right_key != right_user_key) {
+    //   delete[] fixed_right_key;
+    //   fixed_right_key = nullptr;
+    // }
   }
 
   if (touch_end()) {
@@ -1904,53 +1949,53 @@ RC BplusTreeScanner::close()
   return RC::SUCCESS;
 }
 
-// RC BplusTreeScanner::fix_user_key(
-//     const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive)
-// {
-//   if (nullptr == fixed_key || nullptr == should_inclusive) {
-//     return RC::INVALID_ARGUMENT;
-//   }
+RC BplusTreeScanner::fix_user_key(
+    const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive, int i)
+{
+  if (nullptr == fixed_key || nullptr == should_inclusive) {
+    return RC::INVALID_ARGUMENT;
+  }
 
-//   // 这里很粗暴，变长字段才需要做调整，其它默认都不需要做调整
-//   assert(tree_handler_.file_header_.attr_type == CHARS);
-//   assert(strlen(user_key) >= static_cast<size_t>(key_len));
+  // 这里很粗暴，变长字段才需要做调整，其它默认都不需要做调整
+  assert(tree_handler_.file_header_.attr_type[i] == CHARS);
+  assert(strlen(user_key) >= static_cast<size_t>(key_len));
 
-//   *should_inclusive = false;
+  *should_inclusive = false;
 
-//   int32_t attr_length = tree_handler_.file_header_.attr_length;
-//   char *key_buf = new (std::nothrow) char[attr_length];
-//   if (nullptr == key_buf) {
-//     return RC::NOMEM;
-//   }
+  int32_t attr_length = tree_handler_.file_header_.attr_length[i];
+  char   *key_buf     = new (std::nothrow) char[attr_length];
+  if (nullptr == key_buf) {
+    return RC::NOMEM;
+  }
 
-//   if (key_len <= attr_length) {
-//     memcpy(key_buf, user_key, key_len);
-//     memset(key_buf + key_len, 0, attr_length - key_len);
+  if (key_len <= attr_length) {
+    memcpy(key_buf, user_key, key_len);
+    memset(key_buf + key_len, 0, attr_length - key_len);
 
-//     *fixed_key = key_buf;
-//     return RC::SUCCESS;
-//   }
+    *fixed_key = key_buf;
+    return RC::SUCCESS;
+  }
 
-//   // key_len > attr_length
-//   memcpy(key_buf, user_key, attr_length);
+  // key_len > attr_length
+  memcpy(key_buf, user_key, attr_length);
 
-//   char c = user_key[attr_length];
-//   if (c == 0) {
-//     *fixed_key = key_buf;
-//     return RC::SUCCESS;
-//   }
+  char c = user_key[attr_length];
+  if (c == 0) {
+    *fixed_key = key_buf;
+    return RC::SUCCESS;
+  }
 
-//   // 扫描 >=/> user_key 的数据
-//   // 示例：>=/> ABCD1 的数据，attr_length=4,
-//   //      等价于扫描 >= ABCE 的数据
-//   // 如果是扫描 <=/< user_key的数据
-//   // 示例：<=/< ABCD1  <==> <= ABCD  (attr_length=4)
-//   // NOTE: 假设都是普通的ASCII字符，不包含二进制字符，使用char不会溢出
-//   *should_inclusive = true;
-//   if (want_greater) {
-//     key_buf[attr_length - 1]++;
-//   }
+  // 扫描 >=/> user_key 的数据
+  // 示例：>=/> ABCD1 的数据，attr_length=4,
+  //      等价于扫描 >= ABCE 的数据
+  // 如果是扫描 <=/< user_key的数据
+  // 示例：<=/< ABCD1  <==> <= ABCD  (attr_length=4)
+  // NOTE: 假设都是普通的ASCII字符，不包含二进制字符，使用char不会溢出
+  *should_inclusive = true;
+  if (want_greater) {
+    key_buf[attr_length - 1]++;
+  }
 
-//   *fixed_key = key_buf;
-//   return RC::SUCCESS;
-// }
+  *fixed_key = key_buf;
+  return RC::SUCCESS;
+}

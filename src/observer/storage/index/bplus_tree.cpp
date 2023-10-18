@@ -1536,6 +1536,7 @@ RC BplusTreeHandler::coalesce_or_redistribute(LatchMemo &latch_memo, Frame *fram
   if (BP_INVALID_PAGE_NUM == parent_page_num) {
     // this is the root page
     if (index_node.size() > 1) {
+      LOG_DEBUG("index_node.size() >1");
     } else {
       // adjust the root node
       adjust_root(latch_memo, frame);

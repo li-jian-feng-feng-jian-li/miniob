@@ -226,12 +226,12 @@ RC Table::open(const char *meta_file, const char *base_dir)
       vec.emplace_back(field_meta);
     }
 
-    BplusTreeIndex *index      = new BplusTreeIndex();
+    BplusTreeIndex *index = new BplusTreeIndex();
 
-    std::string     index_file = table_index_file(base_dir, name(), index_meta->name());
+    std::string index_file = table_index_file(base_dir, name(), index_meta->name());
     LOG_DEBUG("base_dir:$%s,table_name:%s,index_name:%s",base_dir,name(),index_meta->name());
     LOG_DEBUG("index_file_name:%s",index_file.c_str());
-    rc                         = index->open(index_file.c_str(), *index_meta, vec);
+    rc = index->open(index_file.c_str(), *index_meta, vec);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s",
@@ -403,7 +403,8 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> *field_meta, const char *index_name, bool is_unique)
+RC Table::create_index(
+    Trx *trx, const std::vector<const FieldMeta *> *field_meta, const char *index_name, bool is_unique)
 {
   if (common::is_blank(index_name) || nullptr == field_meta || field_meta->size() == 0) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -417,7 +418,6 @@ RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> *field_met
              name(), index_name);
     return rc;
   }
-
 
   // 创建索引相关数据
   BplusTreeIndex *index      = new BplusTreeIndex();
@@ -532,26 +532,42 @@ RC Table::update_record(const Record &old_record, const Value *value, const char
   }
 
   const FieldMeta *field_meta = table_meta_.field(field_name);
+  // store old record and return this when update fails
+  char *old_value = (char *)malloc(field_meta->len());
+  memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());
 
-  rc = record_handler_->update_record(&old_record.rid(), value, field_meta);
+  // try to update record
+  size_t copy_len = field_meta->len();
+  if (field_meta->type() == CHARS) {
+    const size_t data_len = value->length();
+    if (copy_len > data_len) {
+      copy_len = data_len + 1;
+    }
+  }
+  memcpy(const_cast<char *>(old_record.data()) + field_meta->offset(), value->data(), copy_len);
 
-  // create a new index
-  Record new_record;
-  rc = get_record(old_record.rid(), new_record);
-  rc = insert_entry_of_indexes(new_record.data(), new_record.rid());
+  // try to insert index
+  rc = insert_entry_of_indexes(old_record.data(), old_record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    RC rc2 = delete_entry_of_indexes(new_record.data(), new_record.rid(), false /*error_on_not_exists*/);
+    RC rc2 = delete_entry_of_indexes(old_record.data(), old_record.rid(), false /*error_on_not_exists*/);
     // if (rc2 != RC::SUCCESS) {
     //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
     //             name(), rc2, strrc(rc2));
     // }
-    rc2 = record_handler_->delete_record(&new_record.rid());
-    if (rc2 != RC::SUCCESS) {
-      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
-    }
+    // rc2 = record_handler_->delete_record(&new_record.rid());
+    // if (rc2 != RC::SUCCESS) {
+    //   LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+    //             name(), rc2, strrc(rc2));
+    // }
+    memcpy(const_cast<char *>(old_record.data()) + field_meta->offset(), old_value, field_meta->len());
+    insert_entry_of_indexes(old_record.data(), old_record.rid());
+    return rc;
+  } else {
+    rc = record_handler_->update_record(&old_record.rid(), value, field_meta);
+    // Record new_record;
+    // rc = get_record(old_record.rid(), new_record);
   }
-  
+
   return rc;
 }
 

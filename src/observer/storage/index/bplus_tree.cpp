@@ -1459,6 +1459,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool is_
   rc = insert_entry_into_leaf_node(latch_memo, frame, key, rid);
   if (rc != RC::SUCCESS) {
     LOG_TRACE("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
+    key_comparator_.set_unique_insert(false);
     return rc;
   }
 

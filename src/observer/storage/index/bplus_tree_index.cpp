@@ -112,7 +112,8 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
   //   key_offset += field_metas_[i]->len();
   // }
   // memcpy(key + key_offset, rid, sizeof(rid));
-  rc = index_handler_.insert_entry(record, rid);
+  bool is_unique = index_meta_.is_unique();
+  rc = index_handler_.insert_entry(record, rid, is_unique);
   if (rc != RC::SUCCESS) {
     return rc;
   }

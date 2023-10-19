@@ -1412,7 +1412,7 @@ MemPoolItem::unique_ptr BplusTreeHandler::make_compare_key(const char *user_key,
   return key;
 }
 
-RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
+RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool is_unique)
 {
   if (user_key == nullptr || rid == nullptr) {
     LOG_WARN("Invalid arguments, key is empty or rid is empty");
@@ -1427,8 +1427,13 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
   // reset compare field nums
   // when we insert ,we need to compare total index key
   // but when we get next record by index scan,we need to compare index key offerd by 'where' condition
-  int old_index_filed_nums = key_comparator_.get_gomp_num();
+  int old_index_filed_nums = key_comparator_.get_comp_num();
   key_comparator_.reset();
+
+
+  if(is_unique){
+    key_comparator_.set_unique_insert(true);
+  }
 
   char *key = static_cast<char *>(pkey.get());
 
@@ -1459,6 +1464,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
 
   LOG_TRACE("insert entry success");
   key_comparator_.set_comp_num(old_index_filed_nums);
+  key_comparator_.set_unique_insert(false);
   return RC::SUCCESS;
 }
 

@@ -19,27 +19,26 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "json/json.h"
 
-
 const static Json::StaticString FIELD_NAME("name");
 const static Json::StaticString FIELD_FIELD_NAME("field_name");
+const static Json::StaticString IS_UNIQUE("is_unique");
 
-RC IndexMeta::init(const char *name, const std::vector<const FieldMeta *> &fields)
+RC IndexMeta::init(const char *name, const std::vector<const FieldMeta *> &fields, bool is_unique)
 {
-  
+
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init index, name is empty.");
     return RC::INVALID_ARGUMENT;
   }
 
   name_ = name;
-  LOG_DEBUG("enter here1!");
 
   for (int i = 0; i < fields.size(); i++) {
     std::string field_name = fields[i]->name();
     fields_.emplace_back(field_name);
   }
-  
-  LOG_DEBUG("enter here2!");
+
+  is_unique_ = is_unique;
 
   return RC::SUCCESS;
 }
@@ -50,6 +49,7 @@ void IndexMeta::to_json(Json::Value &json_value) const
   for (int i = 0; i < fields_.size(); i++) {
     json_value[FIELD_FIELD_NAME].append(fields_[i]);
   }
+  json_value[IS_UNIQUE] = is_unique_;
 }
 
 RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index)
@@ -77,12 +77,14 @@ RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, I
     }
     vec.emplace_back(field);
   }
-  return index.init(name_value.asCString(), vec);
+  return index.init(name_value.asCString(), vec, json_value[IS_UNIQUE].asBool());
 }
 
 const char *IndexMeta::name() const { return name_.c_str(); }
 
 const std::vector<std::string> IndexMeta::fields() const { return fields_; }
+
+bool IndexMeta::is_unique() {return is_unique_;}
 
 void IndexMeta::desc(std::ostream &os) const
 {
@@ -91,4 +93,5 @@ void IndexMeta::desc(std::ostream &os) const
     os << fields_[i] << ", ";
   }
   os << fields_[fields_.size() - 1];
+  os << "is unique =" << is_unique_;
 }

@@ -99,7 +99,7 @@ class KeyComparator
 public:
   void init(AttrType *types, int *lengths, int attr_num)
   {
-    int len        = 0;
+    int len = 0;
     for (int i = 0; i < attr_num; i++) {
       AttrComparator tmp;
       tmp.init(types[i], lengths[i]);
@@ -111,14 +111,11 @@ public:
     compare_fields_num_ = index_fields_num_;
   }
 
-  void reset()
-  {
-    compare_fields_num_ = index_fields_num_;
-    // index_scan          = false;
-  }
+  void reset() { compare_fields_num_ = index_fields_num_; }
   // void start_index_scan() { index_scan = true; }
   void set_comp_num(int num) { compare_fields_num_ = num; }
-  int  get_gomp_num() { return compare_fields_num_; }
+  int  get_comp_num() { return compare_fields_num_; }
+  void set_unique_insert(bool is_unique) { unique_insert_ = is_unique; }
 
   const std::vector<AttrComparator> &attr_comparator() const { return attr_comparators_; }
 
@@ -145,18 +142,11 @@ public:
         return result;
       }
     }
-
-    // if (!index_scan) {
-    // LOG_DEBUG("use rid comparator!");
-    const RID *rid1 = (const RID *)(v1 + total_length_);
-    // LOG_DEBUG("rid1 :%s",rid1->to_string());
-    const RID *rid2 = (const RID *)(v2 + total_length_);
-    // LOG_DEBUG("rid2 :%s",rid2->to_string());
-    return RID::compare(rid1, rid2);
-    // } else {
-    //   LOG_DEBUG("compare result = %d",result);
-    //   return result;
-    // }
+    if (!unique_insert_) {
+      const RID *rid1 = (const RID *)(v1 + total_length_);
+      const RID *rid2 = (const RID *)(v2 + total_length_);
+      return RID::compare(rid1, rid2);
+    } else return 0;
   }
 
 private:
@@ -164,7 +154,7 @@ private:
   int                         total_length_;
   int                         compare_fields_num_;
   int                         index_fields_num_;
-  // bool                        index_scan = false;
+  bool                        unique_insert_ = false;
 };
 
 /**
@@ -273,16 +263,16 @@ struct IndexFileHeader
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
-  int32_t               attr_length[20];
-  int32_t               attr_offset[20];
-  AttrType              attr_type[20];          ///< 键值的类型
-  PageNum               root_page;          ///< 根节点在磁盘中的页号
-  int32_t               internal_max_size;  ///< 内部节点最大的键值对数
-  int32_t               leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t               total_attr_length;  ///< 键值的长度
-  int32_t               key_length;         ///< total_attr_length + sizeof(RID)
-  int32_t               attr_num;
-      
+  int32_t  attr_length[20];
+  int32_t  attr_offset[20];
+  AttrType attr_type[20];      ///< 键值的类型
+  PageNum  root_page;          ///< 根节点在磁盘中的页号
+  int32_t  internal_max_size;  ///< 内部节点最大的键值对数
+  int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
+  int32_t  total_attr_length;  ///< 键值的长度
+  int32_t  key_length;         ///< total_attr_length + sizeof(RID)
+  int32_t  attr_num;
+
   // const std::string to_string()
   // {
   //   std::stringstream ss;
@@ -544,7 +534,7 @@ public:
    * 即向索引中插入一个值为（user_key，rid）的键值对
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC insert_entry(const char *user_key, const RID *rid);
+  RC insert_entry(const char *user_key, const RID *rid, bool is_unique = false);
 
   /**
    * 从IndexHandle句柄对应的索引中删除一个值为（*pData，rid）的索引项

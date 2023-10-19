@@ -259,10 +259,10 @@ RC Table::insert_record(Record &record)
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
     RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
-    }
+    // if (rc2 != RC::SUCCESS) {
+    //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+    //             name(), rc2, strrc(rc2));
+    // }
     rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
       LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
@@ -403,7 +403,7 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> *field_meta, const char *index_name)
+RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> *field_meta, const char *index_name, bool is_unique)
 {
   if (common::is_blank(index_name) || nullptr == field_meta || field_meta->size() == 0) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -411,14 +411,13 @@ RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> *field_met
   }
 
   IndexMeta new_index_meta;
-  RC        rc = new_index_meta.init(index_name, *field_meta);
+  RC        rc = new_index_meta.init(index_name, *field_meta, is_unique);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s", 
              name(), index_name);
     return rc;
   }
 
-  LOG_DEBUG("enter here3!");
 
   // 创建索引相关数据
   BplusTreeIndex *index      = new BplusTreeIndex();
@@ -542,10 +541,10 @@ RC Table::update_record(const Record &old_record, const Value *value, const char
   rc = insert_entry_of_indexes(new_record.data(), new_record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
     RC rc2 = delete_entry_of_indexes(new_record.data(), new_record.rid(), false /*error_on_not_exists*/);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
-    }
+    // if (rc2 != RC::SUCCESS) {
+    //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+    //             name(), rc2, strrc(rc2));
+    // }
     rc2 = record_handler_->delete_record(&new_record.rid());
     if (rc2 != RC::SUCCESS) {
       LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",

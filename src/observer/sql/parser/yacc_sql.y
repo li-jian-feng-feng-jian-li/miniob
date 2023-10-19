@@ -60,6 +60,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         DROP
         TABLE
         TABLES
+        UNIQUE
         INDEX
         CALC
         SELECT
@@ -123,6 +124,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
   char *                            string;
   int                               number;
+  int                               index_type;
   float                             floats;
 }
 
@@ -143,6 +145,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <join_list>           join_list
+%type <index_type>          index_type
 %type <value_list>          value_list
 %type <value_lists>         value_lists
 %type <condition_list>      where
@@ -269,12 +272,13 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID id_list RBRACE
+    CREATE index_type ID ON ID LBRACE ID id_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
       create_index.index_name = $3;
       create_index.relation_name = $5;
+      create_index.is_unique = $2;
       if( $8 != nullptr){
         create_index.attribute_name.swap( *$8);
       }
@@ -284,6 +288,13 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       free($5);
     }
     ;
+  
+  index_type:
+  INDEX {
+    $$ = 0;
+  } | UNIQUE INDEX {
+    $$ = 1;
+  }
 
   id_list:
   /* empty */

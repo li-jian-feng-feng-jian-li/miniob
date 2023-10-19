@@ -71,7 +71,7 @@ RC BplusTreeIndex::open(
 
   LOG_DEBUG("start open index_handler!");
   // TODO solve bug
-  RC rc = index_handler_.open(file_name, field_meta);
+  RC rc = index_handler_.open(file_name);
   LOG_DEBUG("finish open index_handler!");
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to open index_handler, file_name:%s, index:%s, rc:%s",

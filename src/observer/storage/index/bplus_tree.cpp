@@ -716,11 +716,19 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
 
   char            *pdata       = header_frame->data();
   IndexFileHeader *file_header = (IndexFileHeader *)pdata;
-  file_header->attr_length.swap(attr_length);
+
+  int attr_num = attr_type.size();
+  for (int i = 0; i < attr_num; i++) {
+    file_header->attr_length[i] = attr_length[i];
+    file_header->attr_type[i]   = attr_type[i];
+    file_header->attr_offset[i] = attr_offset[i];
+  }
+  // file_header->attr_length.swap(attr_length);
   file_header->total_attr_length = total_attr_length;
   file_header->key_length        = total_attr_length + sizeof(RID);
-  file_header->attr_type.swap(attr_type);
-  file_header->attr_offset.swap(attr_offset);
+  file_header->attr_num          = attr_num;
+  // file_header->attr_type.swap(attr_type);
+  // file_header->attr_offset.swap(attr_offset);
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size     = leaf_max_size;
   file_header->root_page         = BP_INVALID_PAGE_NUM;
@@ -740,9 +748,10 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
     return RC::NOMEM;
   }
 
-  key_comparator_.init(file_header->attr_type, file_header->attr_length);
+  key_comparator_.init(file_header->attr_type, file_header->attr_length, file_header->attr_num);
+  LOG_DEBUG("finish init ket_comparator.");
 
-  key_printer_.init(file_header->attr_type, file_header->attr_length);
+  key_printer_.init(file_header->attr_type, file_header->attr_length, file_header_.attr_num);
 
   LOG_INFO("Successfully create index %s", file_name);
   return RC::SUCCESS;
@@ -791,15 +800,10 @@ RC BplusTreeHandler::open(const char *file_name)
 
   // close old page_handle
   disk_buffer_pool->unpin_page(frame);
-  LOG_DEBUG("finish disk_buffer_pool->unpin_page(frame)");
-  LOG_DEBUG("file_header_.attr_type size:%d",file_header_.attr_type.size());
-  LOG_DEBUG("file_header_.attr_length size:%d",file_header_.attr_length.size());
 
-  key_comparator_.init(file_header_.attr_type, file_header_.attr_length);
-  LOG_DEBUG("finish key_comparator_.init");
-
-  key_printer_.init(file_header_.attr_type, file_header_.attr_length);
-  LOG_DEBUG("finish key_printer_.init");
+  key_comparator_.init(file_header_.attr_type, file_header_.attr_length, file_header_.attr_num);
+  LOG_DEBUG("finish init ket_comparator.");
+  key_printer_.init(file_header_.attr_type, file_header_.attr_length, file_header_.attr_num);
   LOG_INFO("Successfully open index %s", file_name);
   return RC::SUCCESS;
 }
@@ -848,18 +852,16 @@ RC BplusTreeHandler::open(const char *file_name, const std::vector<const FieldMe
   // close old page_handle
   disk_buffer_pool->unpin_page(frame);
 
-  std::vector<AttrType> vec1;
-  std::vector<int>      vec2;
-  for (auto &field_meta : field_metas) {
-    vec1.emplace_back(field_meta->type());
-    vec2.emplace_back(field_meta->len());
-  }
+  // std::vector<AttrType> vec1;
+  // std::vector<int>      vec2;
+  // for (auto &field_meta : field_metas) {
+  //   vec1.emplace_back(field_meta->type());
+  //   vec2.emplace_back(field_meta->len());
+  // }
 
-  key_comparator_.init(vec1, vec2);
-  LOG_DEBUG("finish key_comparator_.init");
-
-  key_printer_.init(vec1, vec2);
-  LOG_DEBUG("finish key_printer_.init");
+  key_comparator_.init(file_header_.attr_type, file_header_.attr_length, file_header_.attr_num);
+  LOG_DEBUG("finish init ket_comparator.");
+  key_printer_.init(file_header_.attr_type, file_header_.attr_length, file_header_.attr_num);
   LOG_INFO("Successfully open index %s", file_name);
   return RC::SUCCESS;
 }
@@ -1354,8 +1356,7 @@ MemPoolItem::unique_ptr BplusTreeHandler::make_key(const char *user_key, const R
   // return key;
   // LOG_DEBUG("char key is %s",*user_key);
   int key_offset = 0;
-  int size       = file_header_.attr_type.size();
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < file_header_.attr_num; i++) {
     // if (i > 0) {
     //   key_offset += file_header_.attr_length[i - 1];
     // }
@@ -1424,8 +1425,8 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
     return RC::NOMEM;
   }
   // reset compare field nums
-  //when we insert ,we need to compare total index key
-  //but when we get next record by index scan,we need to compare index key offerd by 'where' condition
+  // when we insert ,we need to compare total index key
+  // but when we get next record by index scan,we need to compare index key offerd by 'where' condition
   int old_index_filed_nums = key_comparator_.get_gomp_num();
   key_comparator_.reset();
 
@@ -1726,7 +1727,7 @@ RC BplusTreeScanner::open(std::vector<Value> *left_user_key, std::vector<bool> *
   tree_handler_.key_comparator_.set_comp_num(comp_num);
   // tree_handler_.key_comparator_.start_index_scan();
 
-  // 校验输入的键值是否是合法范围
+  // //校验输入的键值是否是合法范围
   // if (left_user_key && right_user_key) {
   //   const auto &key_comparator_ = tree_handler_.key_comparator_;
   //   const int   result          = key_comparator_(left_user_key, right_user_key);

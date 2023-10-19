@@ -97,18 +97,17 @@ private:
 class KeyComparator
 {
 public:
-  void init(std::vector<AttrType> types, std::vector<int> lengths)
+  void init(AttrType *types, int *lengths, int attr_num)
   {
     int len        = 0;
-    int fields_num = types.size();
-    for (int i = 0; i < fields_num; i++) {
+    for (int i = 0; i < attr_num; i++) {
       AttrComparator tmp;
       tmp.init(types[i], lengths[i]);
       attr_comparators_.emplace_back(tmp);
       len += lengths[i];
     }
     total_length_       = len;
-    index_fields_num_   = fields_num;
+    index_fields_num_   = attr_num;
     compare_fields_num_ = index_fields_num_;
   }
 
@@ -224,9 +223,9 @@ private:
 class KeyPrinter
 {
 public:
-  void init(std::vector<AttrType> type, std::vector<int> length)
+  void init(AttrType *type, int *length, int attr_num)
   {
-    for (int i = 0; i < type.size(); i++) {
+    for (int i = 0; i < attr_num; i++) {
       AttrPrinter tmp;
       tmp.init(type[i], length[i]);
       attr_printer_.emplace_back(tmp);
@@ -274,15 +273,16 @@ struct IndexFileHeader
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
+  int32_t               attr_length[20];
+  int32_t               attr_offset[20];
+  AttrType              attr_type[20];          ///< 键值的类型
   PageNum               root_page;          ///< 根节点在磁盘中的页号
   int32_t               internal_max_size;  ///< 内部节点最大的键值对数
   int32_t               leaf_max_size;      ///< 叶子节点最大的键值对数
   int32_t               total_attr_length;  ///< 键值的长度
   int32_t               key_length;         ///< total_attr_length + sizeof(RID)
-  std::vector<AttrType> attr_type;          ///< 键值的类型
-  std::vector<int32_t>  attr_length;
-  std::vector<int32_t>  attr_offset;
-
+  int32_t               attr_num;
+      
   // const std::string to_string()
   // {
   //   std::stringstream ss;

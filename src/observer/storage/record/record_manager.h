@@ -185,7 +185,7 @@ public:
    * update record 
    * @author ljf
   */
-  RC update_record(const RID *rid, const Value *value, const FieldMeta *field_meta);
+  RC update_record(const RID *rid, std::vector<Value> value, std::vector<const FieldMeta *> field_meta);
 
   /**
    * @brief 获取指定位置的记录数据
@@ -291,7 +291,7 @@ public:
    * update_record
    * @author ljf
   */
-  RC update_record(const RID* rid, const Value *value, const FieldMeta *field_meta);
+  RC update_record(const RID* rid, std::vector<Value> value, std::vector<const FieldMeta *> field_meta);
 
    /**
    * @brief 数据库恢复时，在指定文件指定位置插入数据

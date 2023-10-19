@@ -163,7 +163,7 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
 
 RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table        *table = insert_stmt->table();
+  Table *table = insert_stmt->table();
 
   // std::vector<Value *> tmp = *(insert_stmt->values());
   // for(int i=0;i<insert_stmt->values()->size();i++){
@@ -212,11 +212,11 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   LOG_INFO("update logical plan created!");
-  Table             *table       = update_stmt->table();
-  FilterStmt        *filter_stmt = update_stmt->filter_stmt();
-  const char        *field_name  = update_stmt->field_name();
-  const Value       *value       = update_stmt->value();
-  std::vector<Field> fields;
+  Table                    *table       = update_stmt->table();
+  FilterStmt               *filter_stmt = update_stmt->filter_stmt();
+  std::vector<const char *> field_name  = update_stmt->field_name();
+  std::vector<Value>        value       = update_stmt->value();
+  std::vector<Field>        fields;
   for (int i = table->table_meta().sys_field_num(); i < table->table_meta().field_num(); i++) {
     const FieldMeta *field_meta = table->table_meta().field(i);
     fields.push_back(Field(table, field_meta));
@@ -230,7 +230,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
     return rc;
   }
 
-  unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table,value,field_name));
+  unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, value, field_name));
 
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));
@@ -242,7 +242,6 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   logical_operator = std::move(update_oper);
 
   return rc;
-
 }
 
 RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<LogicalOperator> &logical_operator)

@@ -17,9 +17,6 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 #include "common/rc.h"
 
-
-
-
 class Table;
 class FilterStmt;
 
@@ -31,20 +28,21 @@ class UpdateStmt : public Stmt
 {
 public:
   UpdateStmt() = default;
-  UpdateStmt(Table *table, const Value *value, FilterStmt *filter_stmt, const char *field_name);
+  UpdateStmt(Table *table, std::vector<Value> value, FilterStmt *filter_stmt, std::vector<const char *> field_name);
   StmtType type() const override { return StmtType::UPDATE; }
 
 public:
   static RC create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table      *table() const { return table_; }
-  const Value      *value() const { return value_; }
-  FilterStmt *filter_stmt() const { return filter_stmt_; }
-  const char *field_name() const { return field_name_;}
+  Table               *table() const { return table_; }
+  std::vector<Value> value() const { return value_; }
+  FilterStmt          *filter_stmt() const { return filter_stmt_; }
+  std::vector<const char *>  field_name() const { return field_name_; }
+
 private:
-  Table      *table_        = nullptr;
-  const Value      *value_       = nullptr;
-  FilterStmt *filter_stmt_  = nullptr;
-  const char *field_name_ = nullptr;
+  Table               *table_ = nullptr;
+  std::vector<Value> value_;
+  FilterStmt          *filter_stmt_ = nullptr;
+  std::vector<const char *>  field_name_;
 };

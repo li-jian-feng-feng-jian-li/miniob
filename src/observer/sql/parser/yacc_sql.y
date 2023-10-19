@@ -122,6 +122,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
+  std::vector<std::pair<std::string,Value> >        *update_list;
   char *                            string;
   int                               number;
   int                               index_type;
@@ -145,6 +146,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <join_list>           join_list
+%type <update_list>         update_list
 %type <index_type>          index_type
 %type <value_list>          value_list
 %type <value_lists>         value_lists
@@ -484,20 +486,41 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     }
     ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    UPDATE ID SET ID EQ value update_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
+      if($7 != nullptr){
+        for(auto p = $7->begin();p != $7->end();p++){
+          $$->update.attribute_name.emplace_back((*p).first);
+          $$->update.value.emplace_back((*p).second);
+        }
+      }
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      $$->update.attribute_name.emplace_back($4);
+      $$->update.value.emplace_back(*$6);
+      if ($8 != nullptr) {
+        $$->update.conditions.swap(*$8);
+        delete $8;
       }
       free($2);
       free($4);
     }
     ;
+update_list:
+  /* empty */
+  {
+    $$ = nullptr;
+  } 
+  | COMMA ID EQ value update_list {
+    if($5 != nullptr){
+      $$ = $5;
+    } else {
+      $$ = new std::vector<std::pair<std::string,Value> >;
+    }
+    $$->emplace_back(std::make_pair($2,*$4));
+  }
+  ;
+  
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr FROM ID rel_list join_list where
     {

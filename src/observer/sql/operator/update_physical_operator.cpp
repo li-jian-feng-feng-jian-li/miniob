@@ -26,7 +26,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "sql/stmt/update_stmt.h"
 
-UpdatePhysicalOperator::UpdatePhysicalOperator(Table *table, const Value *value, const char *field_name)
+UpdatePhysicalOperator::UpdatePhysicalOperator(
+    Table *table, std::vector<Value> value, std::vector<const char *> field_name)
     : table_(table), value_(value), field_name_(field_name)
 {}
 
@@ -56,7 +57,7 @@ RC UpdatePhysicalOperator::next()
     return RC::RECORD_EOF;
   }
   std::vector<Record> rec_to_upd;
-  PhysicalOperator *child = children_[0].get();
+  PhysicalOperator   *child = children_[0].get();
   while (RC::SUCCESS == (rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
@@ -64,13 +65,13 @@ RC UpdatePhysicalOperator::next()
       return rc;
     }
 
-    RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    Record   &old_record    = row_tuple->record();
+    RowTuple *row_tuple  = static_cast<RowTuple *>(tuple);
+    Record   &old_record = row_tuple->record();
     rec_to_upd.emplace_back(old_record);
   }
 
-  for(int i=0;i<rec_to_upd.size();i++){
-    rc                  = trx_->update_record(table_, rec_to_upd[i],value_,field_name_);
+  for (int i = 0; i < rec_to_upd.size(); i++) {
+    rc = trx_->update_record(table_, rec_to_upd[i], value_, field_name_);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to update record: %s", strrc(rc));
       return rc;

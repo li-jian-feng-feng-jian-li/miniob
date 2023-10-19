@@ -186,7 +186,7 @@ RC MvccTrx::delete_record(Table *table, Record &record)
 }
 
 // update
-RC MvccTrx::update_record(Table *table, Record &old_record, const Value *value, const char *field_name)
+RC MvccTrx::update_record(Table *table, Record &old_record, std::vector<Value> value,std::vector<const char *> field_name)
 {
   Field begin_field;
   Field end_field;

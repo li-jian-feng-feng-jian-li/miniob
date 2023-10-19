@@ -518,7 +518,7 @@ RC Table::delete_record(const Record &record)
   return rc;
 }
 
-RC Table::update_record(const Record &old_record, const Value *value, const char *field_name)
+RC Table::update_record(const Record &old_record, std::vector<Value> value, std::vector<const char *> field_name)
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
@@ -531,20 +531,25 @@ RC Table::update_record(const Record &old_record, const Value *value, const char
         strrc(rc));
   }
 
-  const FieldMeta *field_meta = table_meta_.field(field_name);
-  // store old record and return this when update fails
-  char *old_value = (char *)malloc(field_meta->len());
-  memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());
-
-  // try to update record
-  size_t copy_len = field_meta->len();
-  if (field_meta->type() == CHARS) {
-    const size_t data_len = value->length();
-    if (copy_len > data_len) {
-      copy_len = data_len + 1;
+  std::vector<char *>            old_values;
+  std::vector<const FieldMeta *> field_metas;
+  for (int i = 0; i < value.size(); i++) {
+    const FieldMeta *field_meta = table_meta_.field(field_name[i]);
+    // store old record and return this when update fails
+    char *old_value = (char *)malloc(field_meta->len());
+    memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());
+    old_values.emplace_back(old_value);
+    field_metas.emplace_back(field_meta);
+    // try to update record
+    size_t copy_len = field_meta->len();
+    if (field_meta->type() == CHARS) {
+      const size_t data_len = value[i].length();
+      if (copy_len > data_len) {
+        copy_len = data_len + 1;
+      }
     }
+    memcpy(const_cast<char *>(old_record.data()) + field_meta->offset(), value[i].data(), copy_len);
   }
-  memcpy(const_cast<char *>(old_record.data()) + field_meta->offset(), value->data(), copy_len);
 
   // try to insert index
   rc = insert_entry_of_indexes(old_record.data(), old_record.rid());
@@ -559,11 +564,13 @@ RC Table::update_record(const Record &old_record, const Value *value, const char
     //   LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
     //             name(), rc2, strrc(rc2));
     // }
-    memcpy(const_cast<char *>(old_record.data()) + field_meta->offset(), old_value, field_meta->len());
+    for (int i = 0; i < old_values.size(); i++) {
+      memcpy(const_cast<char *>(old_record.data()) + field_metas[i]->offset(), old_values[i], field_metas[i]->len());
+    }
     insert_entry_of_indexes(old_record.data(), old_record.rid());
     return rc;
   } else {
-    rc = record_handler_->update_record(&old_record.rid(), value, field_meta);
+    rc = record_handler_->update_record(&old_record.rid(), value, field_metas);
     // Record new_record;
     // rc = get_record(old_record.rid(), new_record);
   }

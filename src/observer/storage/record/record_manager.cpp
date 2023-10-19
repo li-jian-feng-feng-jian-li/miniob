@@ -209,7 +209,7 @@ RC RecordPageHandler::insert_record(const char *data, RID *rid)
   return RC::SUCCESS;
 }
 
-RC RecordPageHandler::update_record(const RID *rid, const Value *value, const FieldMeta *field_meta)
+RC RecordPageHandler::update_record(const RID *rid, std::vector<Value> value, std::vector<const FieldMeta *> field_meta)
 {
   ASSERT(readonly_ == false, "cannot delete record from page while the page is readonly");
 
@@ -218,18 +218,20 @@ RC RecordPageHandler::update_record(const RID *rid, const Value *value, const Fi
     return RC::INVALID_ARGUMENT;
   }
 
-  char       *record_data = get_record_data(rid->slot_num);
-  const char *value_data  = value->data();
-  size_t      copy_len    = field_meta->len();
-  int         offset      = field_meta->offset();
-  if (field_meta->type() == CHARS) {
-    const size_t data_len = value->length();
-    if (copy_len > data_len) {
-      copy_len = data_len + 1;
+  char *record_data = get_record_data(rid->slot_num);
+  for (int i = 0; i < value.size(); i++) {
+    const char *value_data = value[i].data();
+    size_t      copy_len   = field_meta[i]->len();
+    int         offset     = field_meta[i]->offset();
+    if (field_meta[i]->type() == CHARS) {
+      const size_t data_len = value[i].length();
+      if (copy_len > data_len) {
+        copy_len = data_len + 1;
+      }
     }
+    memcpy(record_data + field_meta[i]->offset(), value[i].data(), copy_len);
   }
-  memcpy(record_data + field_meta->offset(), value->data(), copy_len);
-  
+
   frame_->mark_dirty();
   return RC::SUCCESS;
 }
@@ -481,7 +483,7 @@ RC RecordFileHandler::delete_record(const RID *rid)
   return rc;
 }
 
-RC RecordFileHandler::update_record(const RID *rid, const Value *value, const FieldMeta *field_meta)
+RC RecordFileHandler::update_record(const RID *rid, std::vector<Value> value, std::vector<const FieldMeta *> field_meta)
 {
   RC rc = RC::SUCCESS;
 
@@ -491,7 +493,7 @@ RC RecordFileHandler::update_record(const RID *rid, const Value *value, const Fi
     return rc;
   }
   rc = page_handler.update_record(rid, value, field_meta);
-  //page_handler.cleanup();
+  // page_handler.cleanup();
   return rc;
 }
 

@@ -134,12 +134,13 @@ union YYSTYPE
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
+  std::vector<std::pair<std::string,Value> >        *update_list;
   char *                            string;
   int                               number;
   int                               index_type;
   float                             floats;
 
-#line 143 "yacc_sql.hpp"
+#line 144 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

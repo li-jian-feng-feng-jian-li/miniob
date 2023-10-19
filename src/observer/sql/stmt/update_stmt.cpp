@@ -19,7 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-UpdateStmt::UpdateStmt(Table *table, const Value *value, FilterStmt *filter_stmt, const char *field_name)
+UpdateStmt::UpdateStmt(
+    Table *table, std::vector<Value> value, FilterStmt *filter_stmt, std::vector<const char *> field_name)
     : table_(table), value_(value), filter_stmt_(filter_stmt), field_name_(field_name)
 {}
 
@@ -45,24 +46,26 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
+  std::vector<const char *> field_names;
+  for (int i = 0; i < update.attribute_name.size(); i++) {
+    const char *field_name = update.attribute_name[i].c_str();
+    const FieldMeta *field_meta = table->table_meta().field(field_name);
 
-  const Value     *value      = &update.value;
-  const char      *field_name = update.attribute_name.c_str();
-  const FieldMeta *field_meta = table->table_meta().field(field_name);
-
-  if (nullptr == field_meta) {
-    LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
-    return RC::SCHEMA_FIELD_MISSING;
+    if (nullptr == field_meta) {
+      LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+    field_names.emplace_back(field_name);
   }
 
-  AttrType field_type = field_meta->type();
-  AttrType value_type = value->attr_type();
-  // check if field type matches value type
-  if (field_type != value_type) {
-    LOG_WARN("field type mismatch. table=%s, field=%s, field_type=%d, value_type=%d",
-          table_name, field_meta->name(), field_type, value_type);
-    return RC::INVALID_ARGUMENT;
-  }
+  // AttrType field_type = field_meta->type();
+  // AttrType value_type = value->attr_type();
+  // // check if field type matches value type
+  // if (field_type != value_type) {
+  //   LOG_WARN("field type mismatch. table=%s, field=%s, field_type=%d, value_type=%d",
+  //         table_name, field_meta->name(), field_type, value_type);
+  //   return RC::INVALID_ARGUMENT;
+  // }
 
   FilterStmt *filter_stmt = nullptr;
   RC          rc          = FilterStmt::create(
@@ -72,7 +75,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     return rc;
   }
 
-  stmt = new UpdateStmt(table, value, filter_stmt, field_name);
+  stmt = new UpdateStmt(table, update.value, filter_stmt, field_names);
   LOG_DEBUG("update stmt created!");
   return RC::SUCCESS;
 }

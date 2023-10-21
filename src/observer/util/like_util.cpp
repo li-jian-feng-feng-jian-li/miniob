@@ -2,53 +2,38 @@
 #include <string>
 
 inline bool isMatch(const std::string& pattern, const std::string& text) {
-    size_t patternIndex = 0;
-    size_t textIndex = 0;
+    int i = 0; // 索引用于遍历模式串
+    int j = 0; // 索引用于遍历文本串
 
-    while (patternIndex < pattern.size() || textIndex < text.size()) {
-        if (pattern[patternIndex] == '%') {
-            // 匹配零个到多个任意字符，直到下一个字符匹配或字符串结束
-            patternIndex++;
-            char nextChar = (patternIndex < pattern.size()) ? pattern[patternIndex] : '\0';
-
-            while (textIndex < text.size() && text[textIndex] != nextChar) {
-                if (text[textIndex] != '\'') {
-                    textIndex++;
-                } else {
-                    // 忽略英文单引号
-                    textIndex++;
-                    while (textIndex < text.size() && text[textIndex] != '\'' && text[textIndex] != '\0') {
-                        textIndex++;
-                    }
-                    if (textIndex < text.size() && text[textIndex] == '\'') {
-                        textIndex++; // 跳过英文单引号
-                    }
-                }
+    while (i < pattern.length() && j < text.length()) {
+        if (pattern[i] == '%') {
+            // 匹配零个到多个任意字符（不包括英文单引号）
+            char nextChar = pattern[i + 1];
+            while (j < text.length() && (text[j] != nextChar || nextChar == '\'')) {
+                j++;
             }
-        } else if (pattern[patternIndex] == '_') {
-            // 匹配一个任意字符，忽略英文单引号
-            if (textIndex < text.size() && text[textIndex] != '\'') {
-                textIndex++;
-            } else if (textIndex < text.size() && text[textIndex] == '\'') {
-                textIndex++; // 跳过英文单引号
-                while (textIndex < text.size() && text[textIndex] != '\'' && text[textIndex] != '\0') {
-                    textIndex++;
-                }
-                if (textIndex < text.size() && text[textIndex] == '\'') {
-                    textIndex++; // 跳过英文单引号
-                }
+            i += 2;
+        } else if (pattern[i] == '_') {
+            // 匹配一个任意字符（不包括英文单引号）
+            if (text[j] == '\'') {
+                return false; // 英文单引号不匹配
             }
-            patternIndex++;
+            i++;
+            j++;
         } else {
-            // 普通字符，要求相等，忽略英文单引号
-            if (textIndex < text.size() && pattern[patternIndex] != text[textIndex]) {
-                return false;
+            // 普通字符匹配
+            if (pattern[i] != text[j]) {
+                return false; // 字符不匹配
             }
-            textIndex++;
-            patternIndex++;
+            i++;
+            j++;
         }
     }
 
-    // 如果两者都同时结束，说明匹配成功
-    return (patternIndex == pattern.size() && textIndex == text.size());
+    // 检查是否有剩余字符
+    while (i < pattern.length() && pattern[i] == '%') {
+        i += 2;
+    }
+
+    return i == pattern.length() && j == text.length();
 }

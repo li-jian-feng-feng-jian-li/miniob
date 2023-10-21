@@ -114,9 +114,13 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
     } break;
     case LIKE: {
       //result = true;
-      //saveStringToFile(left.to_string(),"test.txt");
-      //saveStringToFile(right.to_string(),"test2.txt");
+      
       result = isMatch(right.to_string(),left.to_string());
+    }break;
+    case NLIKE: {
+       //saveStringToFile(left.to_string(),"test.txt");
+       //saveStringToFile(right.to_string(),"test2.txt");
+       result = !isMatch(right.to_string(),left.to_string());
     }break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);

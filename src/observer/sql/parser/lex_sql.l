@@ -132,6 +132,7 @@ EXPLAIN                                 RETURN_TOKEN(EXPLAIN);
 "<"                                     RETURN_TOKEN(LT);
 ">="                                    RETURN_TOKEN(GE);
 ">"                                     RETURN_TOKEN(GT);
+"NOT LIKE"                              RETURN_TOKEN(NK);
 
 "+" |
 "-" |

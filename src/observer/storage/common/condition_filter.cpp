@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/table/table.h"
 #include "sql/parser/value.h"
+#include "util/like_util.cpp"
 
 using namespace common;
 
@@ -153,7 +154,11 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       return cmp_result >= 0;
     case GREAT_THAN:
       return cmp_result > 0;
-
+    case LIKE:
+    {
+      bool isOK = isMatch(right_value.to_string(),left_value.to_string());
+      return isOK;
+    }
     default:
       break;
   }

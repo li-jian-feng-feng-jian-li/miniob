@@ -1,39 +1,35 @@
 #include <iostream>
 #include <string>
+#include <vector>
 
-inline bool isMatch(const std::string& pattern, const std::string& text) {
-    int i = 0; // 索引用于遍历模式串
-    int j = 0; // 索引用于遍历文本串
+inline bool isMatch(const std::string& pattern, const std::string& str) {
+    int m = pattern.size();
+    int n = str.size();
 
-    while (i < pattern.length() && j < text.length()) {
-        if (pattern[i] == '%') {
-            // 匹配零个到多个任意字符（不包括英文单引号）
-            char nextChar = pattern[i + 1];
-            while (j < text.length() && (text[j] != nextChar || nextChar == '\'')) {
-                j++;
-            }
-            i += 2;
-        } else if (pattern[i] == '_') {
-            // 匹配一个任意字符（不包括英文单引号）
-            if (text[j] == '\'') {
-                return false; // 英文单引号不匹配
-            }
-            i++;
-            j++;
-        } else {
-            // 普通字符匹配
-            if (pattern[i] != text[j]) {
-                return false; // 字符不匹配
-            }
-            i++;
-            j++;
+    // Create a 2D DP table to store intermediate results
+    std::vector<std::vector<bool>> dp(m + 1, std::vector<bool>(n + 1, false));
+
+    // Empty pattern matches empty string
+    dp[0][0] = true;
+
+    // Fill in the first row
+    for (int i = 1; i <= m; i++) {
+        if (pattern[i - 1] == '%') {
+            dp[i][0] = dp[i - 1][0];
         }
     }
 
-    // 检查是否有剩余字符
-    while (i < pattern.length() && pattern[i] == '%') {
-        i += 2;
+    // Fill in the DP table
+    for (int i = 1; i <= m; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (pattern[i - 1] == str[j - 1] || pattern[i - 1] == '_') {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else if (pattern[i - 1] == '%') {
+                dp[i][j] = dp[i - 1][j] || dp[i][j - 1];
+            }
+        }
     }
 
-    return i == pattern.length() && j == text.length();
+    return dp[m][n];
+           
 }

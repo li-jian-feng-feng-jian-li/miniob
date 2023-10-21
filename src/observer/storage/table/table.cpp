@@ -535,7 +535,7 @@ RC Table::update_record(const Record &old_record, std::vector<Value> value, std:
   std::vector<const FieldMeta *> field_metas;
   for (int i = 0; i < value.size(); i++) {
     const FieldMeta *field_meta = table_meta_.field(field_name[i]);
-    // store old record and return this when update fails
+    // store old record and recover this when update fails
     char *old_value = (char *)malloc(field_meta->len());
     memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());
     old_values.emplace_back(old_value);
@@ -555,24 +555,24 @@ RC Table::update_record(const Record &old_record, std::vector<Value> value, std:
   rc = insert_entry_of_indexes(old_record.data(), old_record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
     RC rc2 = delete_entry_of_indexes(old_record.data(), old_record.rid(), false /*error_on_not_exists*/);
-    // if (rc2 != RC::SUCCESS) {
-    //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-    //             name(), rc2, strrc(rc2));
-    // }
-    // rc2 = record_handler_->delete_record(&new_record.rid());
-    // if (rc2 != RC::SUCCESS) {
-    //   LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-    //             name(), rc2, strrc(rc2));
-    // }
+    if (rc2 != RC::SUCCESS) {
+      LOG_WARN("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+    // recover the old record
     for (int i = 0; i < old_values.size(); i++) {
       memcpy(const_cast<char *>(old_record.data()) + field_metas[i]->offset(), old_values[i], field_metas[i]->len());
     }
-    insert_entry_of_indexes(old_record.data(), old_record.rid());
+    // recover the index
+    rc2 = insert_entry_of_indexes(old_record.data(), old_record.rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_WARN("Failed to rollback index  when update index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
     return rc;
   } else {
+    //persistance the update
     rc = record_handler_->update_record(&old_record.rid(), value, field_metas);
-    // Record new_record;
-    // rc = get_record(old_record.rid(), new_record);
   }
 
   return rc;

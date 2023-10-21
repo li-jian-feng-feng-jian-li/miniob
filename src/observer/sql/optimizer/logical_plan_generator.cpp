@@ -164,13 +164,6 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
 RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   Table *table = insert_stmt->table();
-
-  // std::vector<Value *> tmp = *(insert_stmt->values());
-  // for(int i=0;i<insert_stmt->values()->size();i++){
-  //   const Value * value = *(insert_stmt->values())[i];
-  //   vector<Value> values(value, value + insert_stmt->value_amount());
-  //   values_vecs.emplace_back(values);
-  // }
   InsertLogicalOperator *insert_operator = new InsertLogicalOperator(table, *insert_stmt->values());
   logical_operator.reset(insert_operator);
   return RC::SUCCESS;

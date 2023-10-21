@@ -49,6 +49,10 @@ public:
   {
     return tables_;
   }
+  const std::vector<std::pair<Field,bool> > &order_fields() const
+  {
+    return order_fields_;
+  }
   const std::vector<Field> &query_fields() const
   {
     return query_fields_;
@@ -60,6 +64,7 @@ public:
 
 private:
   std::vector<Field> query_fields_;
+  std::vector<std::pair<Field,bool> > order_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
 };

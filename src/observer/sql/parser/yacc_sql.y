@@ -6,7 +6,6 @@
 #include <string.h>
 #include <algorithm>
 #include <utility>
-
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "sql/parser/parse_defs.h"
@@ -64,6 +63,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INDEX
         CALC
         SELECT
+        ORDER
+        BY
+        ASC
         DESC
         SHOW
         SYNC
@@ -121,8 +123,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
-  std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list  ;
+  std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list;
   std::vector<std::pair<std::string,Value> >        *update_list;
+  RelAttrOrderNode *                order;
+  std::vector<RelAttrOrderNode> *   order_list;
   char *                            string;
   int                               number;
   int                               index_type;
@@ -155,6 +159,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
+%type <order>               order
+%type <order_list>          order_list
+%type <order_list>          order_attr
 %type <id_list>             id_list
 %type <expression>          expression
 %type <expression_list>     expression_list
@@ -522,13 +529,19 @@ update_list:
   ;
   
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list join_list where
+    SELECT select_attr FROM ID rel_list join_list where order_attr
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
+
+      if($8 != nullptr) {
+        $$->selection.orders.swap(*$8);
+        delete $8;
+      }
+
       if ($5 != nullptr) {
         $$->selection.relations.swap(*$5);
         delete $5;
@@ -620,6 +633,61 @@ select_attr:
       delete $1;
     }
     ;
+
+order_attr:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | ORDER BY order order_list {
+      if ($4 != nullptr){
+        $$ = $4;
+      } else {
+        $$ = new std::vector<RelAttrOrderNode>;
+      }
+      $$ -> emplace_back(*$3);
+      std::reverse($$->begin(),$$->end());
+      delete $3;
+    }
+    ;
+
+order:
+    rel_attr ASC {
+      $$ = new RelAttrOrderNode;
+      $$->attribute_name = $1->attribute_name;
+      $$->relation_name = $1->relation_name;
+      $$->order_by_desc = false;
+    }
+    | rel_attr DESC {
+      $$ = new RelAttrOrderNode;
+      $$->attribute_name = $1->attribute_name;
+      $$->relation_name = $1->relation_name;
+      $$->order_by_desc = true;
+    }
+    | rel_attr {
+      $$ = new RelAttrOrderNode;
+      $$->attribute_name = $1->attribute_name;
+      $$->relation_name = $1->relation_name;
+      $$->order_by_desc = false;
+    }
+    ;
+
+order_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    } | COMMA order order_list {
+      if($3 != nullptr){
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RelAttrOrderNode>;
+      }
+      $$->emplace_back(*$2);
+      std::reverse($$->begin(),$$->end());
+      delete $2;
+    }
+    ;
+
 
 rel_attr:
     ID {

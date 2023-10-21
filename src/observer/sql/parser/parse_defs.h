@@ -40,6 +40,13 @@ struct RelAttrSqlNode
   std::string attribute_name;  ///< attribute name              属性名
 };
 
+struct RelAttrOrderNode
+{
+  std::string relation_name;
+  std::string attribute_name;
+  bool order_by_desc = false;
+};
+
 /**
  * @brief 描述比较运算符
  * @ingroup SQLParser
@@ -92,6 +99,7 @@ struct SelectSqlNode
   std::vector<RelAttrSqlNode>     attributes;    ///< attributes in select clause
   std::vector<std::string>        relations;     ///< 查询的表
   std::vector<ConditionSqlNode>   conditions;    ///< 查询条件，使用AND串联起来多个条件
+  std::vector<RelAttrOrderNode>   orders;        //order by
 };
 
 /**

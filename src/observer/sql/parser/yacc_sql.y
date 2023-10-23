@@ -540,6 +540,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
 
       if($8 != nullptr) {
+        std::reverse($8->begin(),$8->end());
         $$->selection.orders.swap(*$8);
         delete $8;
       }
@@ -648,7 +649,6 @@ order_attr:
         $$ = new std::vector<RelAttrOrderNode>;
       }
       $$ -> emplace_back(*$3);
-      std::reverse($$->begin(),$$->end());
       delete $3;
     }
     ;
@@ -685,7 +685,6 @@ order_list:
         $$ = new std::vector<RelAttrOrderNode>;
       }
       $$->emplace_back(*$2);
-      std::reverse($$->begin(),$$->end());
       delete $2;
     }
     ;

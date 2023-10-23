@@ -27,7 +27,6 @@ class DeleteStmt;
 class ExplainStmt;
 class UpdateStmt;
 class LogicalOperator;
-
 class LogicalPlanGenerator
 {
 public:

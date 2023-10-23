@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/update_logical_operator.h"
+#include "sql/operator/sort_logical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
@@ -115,15 +116,46 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     return rc;
   }
 
+  bool                        need_to_order = !select_stmt->order_fields().empty();
+  unique_ptr<LogicalOperator> order_oper(nullptr);
+  if (need_to_order) {
+    unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields()));
+    order_oper = std::move(sort_oper);
+  }
+
   unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields));
-  if (predicate_oper) {
-    if (table_oper) {
-      predicate_oper->add_child(std::move(table_oper));
+  // if (predicate_oper) {
+  //   if (table_oper) {
+  //     predicate_oper->add_child(std::move(table_oper));
+  //   }
+  //   project_oper->add_child(std::move(predicate_oper));
+  // } else {
+  //   if (table_oper) {
+  //     project_oper->add_child(std::move(table_oper));
+  //   }
+  // }
+  if (order_oper) {
+    if (predicate_oper) {
+      if (table_oper) {
+        predicate_oper->add_child(std::move(table_oper));
+      }
+      order_oper->add_child(std::move(predicate_oper));
+    } else {
+      if (table_oper) {
+        order_oper->add_child(std::move(table_oper));
+      }
     }
-    project_oper->add_child(std::move(predicate_oper));
+    project_oper->add_child(std::move(order_oper));
   } else {
-    if (table_oper) {
-      project_oper->add_child(std::move(table_oper));
+    if (predicate_oper) {
+      if (table_oper) {
+        predicate_oper->add_child(std::move(table_oper));
+      }
+      project_oper->add_child(std::move(predicate_oper));
+    } else {
+      if (table_oper) {
+        project_oper->add_child(std::move(table_oper));
+      }
     }
   }
 
@@ -163,7 +195,7 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
 
 RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table *table = insert_stmt->table();
+  Table                 *table           = insert_stmt->table();
   InsertLogicalOperator *insert_operator = new InsertLogicalOperator(table, *insert_stmt->values());
   logical_operator.reset(insert_operator);
   return RC::SUCCESS;

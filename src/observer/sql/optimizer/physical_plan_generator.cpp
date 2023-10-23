@@ -31,6 +31,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/explain_physical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/join_physical_operator.h"
+#include "sql/operator/sort_logical_operator.h"
+#include "sql/operator/sort_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/expr/expression.h"
@@ -79,7 +81,9 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
     case LogicalOperatorType::JOIN: {
       return create_plan(static_cast<JoinLogicalOperator &>(logical_operator), oper);
     } break;
-
+    case LogicalOperatorType::SORT: {
+      return create_plan(static_cast<SortLogicalOperator &>(logical_operator), oper);
+    }
     default: {
       return RC::INVALID_ARGUMENT;
     }
@@ -263,6 +267,34 @@ RC PhysicalPlanGenerator::create_plan(PredicateLogicalOperator &pred_oper, uniqu
   unique_ptr<Expression> expression = std::move(expressions.front());
   oper = unique_ptr<PhysicalOperator>(new PredicatePhysicalOperator(std::move(expression)));
   oper->add_child(std::move(child_phy_oper));
+  LOG_TRACE("create a predicate physical operator");
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &sort_oper, unique_ptr<PhysicalOperator> &oper)
+{
+  vector<unique_ptr<LogicalOperator>> &child_opers = sort_oper.children();
+  unique_ptr<PhysicalOperator>         child_phy_oper;
+
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc                          = create(*child_oper, child_phy_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create Sort logical operator's child physical operator. rc=%s", strrc(rc));
+      return rc;
+    }
+  }
+
+  SortPhysicalOperator *sort_operator = new SortPhysicalOperator(sort_oper.order_fields());
+
+  if (child_phy_oper) {
+    sort_operator->add_child(std::move(child_phy_oper));
+  }
+
+  oper = unique_ptr<PhysicalOperator>(sort_operator);
+
+  LOG_TRACE("create a sort physical operator");
   return rc;
 }
 

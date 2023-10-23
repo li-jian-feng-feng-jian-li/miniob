@@ -22,7 +22,11 @@ RC TableScanPhysicalOperator::open(Trx *trx)
 {
   RC rc = table_->get_record_scanner(record_scanner_, trx, readonly_);
   if (rc == RC::SUCCESS) {
-    tuple_.set_schema(table_, table_->table_meta().field_metas());
+    tuple_.resize(400);
+    current_record_.resize(400);
+    for (int i = 0; i < tuple_.size(); i++) {
+      tuple_[i].set_schema(table_, table_->table_meta().field_metas());
+    }
   }
   trx_ = trx;
   return rc;
@@ -34,25 +38,24 @@ RC TableScanPhysicalOperator::next()
     return RC::RECORD_EOF;
   }
 
-  RC rc = RC::SUCCESS;
+  RC   rc            = RC::SUCCESS;
   bool filter_result = false;
   while (record_scanner_.has_next()) {
-    rc = record_scanner_.next(current_record_);
+    rc             = record_scanner_.next(current_record_[index]);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-
-    tuple_.set_record(&current_record_);
-    rc = filter(tuple_, filter_result);
+    tuple_[index].set_record(&(current_record_[index]));
+    rc = filter(tuple_[index], filter_result);
     if (rc != RC::SUCCESS) {
       return rc;
     }
 
     if (filter_result) {
-      sql_debug("get a tuple: %s", tuple_.to_string().c_str());
+      sql_debug("get a tuple: %s", tuple_[index].to_string().c_str());
       break;
     } else {
-      sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
+      sql_debug("a tuple is filtered: %s", tuple_[index].to_string().c_str());
       rc = RC::RECORD_EOF;
     }
   }
@@ -66,14 +69,10 @@ RC TableScanPhysicalOperator::close()
 
 Tuple *TableScanPhysicalOperator::current_tuple()
 {
-  tuple_.set_record(&current_record_);
-  return &tuple_;
+  return &(tuple_[index++]);
 }
 
-string TableScanPhysicalOperator::param() const
-{
-  return table_->name();
-}
+string TableScanPhysicalOperator::param() const { return table_->name(); }
 
 void TableScanPhysicalOperator::set_predicates(vector<unique_ptr<Expression>> &&exprs)
 {
@@ -82,7 +81,7 @@ void TableScanPhysicalOperator::set_predicates(vector<unique_ptr<Expression>> &&
 
 RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
 {
-  RC rc = RC::SUCCESS;
+  RC    rc = RC::SUCCESS;
   Value value;
   LOG_DEBUG("start filter!");
   for (unique_ptr<Expression> &expr : predicates_) {

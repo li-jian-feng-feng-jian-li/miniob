@@ -275,6 +275,75 @@ public:
     return tuple_->find_cell(spec, cell);
   }
 
+  std::string to_string() const override
+  {
+    return tuple_->to_string();
+  }
+
+#if 0
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      return RC::NOTFOUND;
+    }
+    spec = speces_[index];
+    return RC::SUCCESS;
+  }
+#endif
+private:
+  std::vector<TupleCellSpec *> speces_;
+  Tuple *tuple_ = nullptr;
+};
+
+class SortTuple : public Tuple 
+{
+public:
+  SortTuple() = default;
+  virtual ~SortTuple()
+  {
+    for (TupleCellSpec *spec : speces_) {
+      delete spec;
+    }
+    speces_.clear();
+  }
+
+  void set_tuple(Tuple *tuple)
+  {
+    this->tuple_ = tuple;
+  }
+
+  void add_cell_spec(TupleCellSpec *spec)
+  {
+    speces_.push_back(spec);
+  }
+  int cell_num() const override
+  {
+    return speces_.size();
+  }
+
+  RC cell_at(int index, Value &cell) const override
+  {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      return RC::INTERNAL;
+    }
+    if (tuple_ == nullptr) {
+      return RC::INTERNAL;
+    }
+
+    const TupleCellSpec *spec = speces_[index];
+    return tuple_->find_cell(*spec, cell);
+  }
+
+  RC find_cell(const TupleCellSpec &spec, Value &cell) const override
+  {
+    return tuple_->find_cell(spec, cell);
+  }
+
+  std::string to_string() const override
+  {
+    return tuple_->to_string();
+  }
+
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {

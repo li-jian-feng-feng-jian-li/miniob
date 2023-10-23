@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "util/like_util.cpp"
+#include "util/file_util.cpp"
 
 using namespace std;
 
@@ -109,6 +111,12 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
     } break;
     case GREAT_THAN: {
       result = (cmp_result > 0);
+    } break;
+    case LIKE: {
+      //result = true;
+      //saveStringToFile(left.to_string(),"test.txt");
+      //saveStringToFile(right.to_string(),"test2.txt");
+      result = isMatch(right.to_string(),left.to_string());
     } break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);

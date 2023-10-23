@@ -159,6 +159,11 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       bool isOK = isMatch(right_value.to_string(),left_value.to_string());
       return isOK;
     }
+    case NLIKE:
+    {
+      bool isOK = !isMatch(right_value.to_string(),left_value.to_string());
+      return isOK;
+    }
     default:
       break;
   }

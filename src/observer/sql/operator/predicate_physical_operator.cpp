@@ -53,6 +53,7 @@ RC PredicatePhysicalOperator::next()
     }
 
     if (value.get_boolean()) {
+      correct_tuple_.emplace_back(tuple);
       return rc;
     }
   }
@@ -67,5 +68,5 @@ RC PredicatePhysicalOperator::close()
 
 Tuple *PredicatePhysicalOperator::current_tuple()
 {
-  return children_[0]->current_tuple();
+  return correct_tuple_.back();
 }

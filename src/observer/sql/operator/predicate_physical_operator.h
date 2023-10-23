@@ -43,5 +43,6 @@ public:
   Tuple *current_tuple() override;
 
 private:
+  std::vector<Tuple *> correct_tuple_;
   std::unique_ptr<Expression> expression_;
 };

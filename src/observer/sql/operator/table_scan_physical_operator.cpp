@@ -41,7 +41,7 @@ RC TableScanPhysicalOperator::next()
   RC   rc            = RC::SUCCESS;
   bool filter_result = false;
   while (record_scanner_.has_next()) {
-    rc             = record_scanner_.next(current_record_[index]);
+    rc = record_scanner_.next(current_record_[index]);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -53,23 +53,27 @@ RC TableScanPhysicalOperator::next()
 
     if (filter_result) {
       sql_debug("get a tuple: %s", tuple_[index].to_string().c_str());
+      correct_tuple_.emplace_back(tuple_[index]);
+      index++;
       break;
     } else {
       sql_debug("a tuple is filtered: %s", tuple_[index].to_string().c_str());
       rc = RC::RECORD_EOF;
+      index++;
     }
   }
   return rc;
 }
 
-RC TableScanPhysicalOperator::close()
-{
-  return record_scanner_.close_scan();
-}
+RC TableScanPhysicalOperator::close() { return record_scanner_.close_scan(); }
 
 Tuple *TableScanPhysicalOperator::current_tuple()
 {
-  return &(tuple_[index++]);
+  if (!correct_tuple_.empty()) {
+    return &(correct_tuple_.back());
+  } else {
+    return nullptr;
+  }
 }
 
 string TableScanPhysicalOperator::param() const { return table_->name(); }

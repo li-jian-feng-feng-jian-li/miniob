@@ -55,4 +55,5 @@ private:
   std::vector<RowTuple>                    tuple_;
   std::vector<std::unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
   int index = 0;
+  std::vector<RowTuple>                    correct_tuple_;
 };

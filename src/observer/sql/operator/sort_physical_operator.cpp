@@ -30,8 +30,7 @@ RC SortPhysicalOperator::next()
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
-  std::vector<SortTuple> tuple_to_sort;
-  PhysicalOperator    *child = children_[0].get();
+  PhysicalOperator *child = children_[0].get();
   if (!finished_) {
     while (RC::SUCCESS == (rc = child->next())) {
       Tuple *tuple = child->current_tuple();
@@ -40,14 +39,13 @@ RC SortPhysicalOperator::next()
         LOG_WARN("failed to get tuple from child: %s", strrc(rc));
         return rc;
       }
-      SortTuple sort_tuple;
-      sort_tuple.set_tuple(tuple);
-      tuple_to_sort.push_back(sort_tuple);
+      // SortTuple sort_tuple;
+      // sort_tuple.set_tuple(child->current_tuple());
+      tuple_to_sort_.emplace_back(tuple);
     }
-
-    tuple_to_sort_ = tuple_to_sort;
     LOG_DEBUG("beginning sort tuple!");
     quicksort(tuple_to_sort_, 0, tuple_to_sort_.size() - 1);
+    LOG_DEBUG("finish sort tuple!");
     finished_ = true;
     return RC::SUCCESS;
   }
@@ -66,9 +64,17 @@ RC SortPhysicalOperator::close()
   return RC::SUCCESS;
 }
 
-Tuple *SortPhysicalOperator::current_tuple() { return &(tuple_to_sort_[index_++]); }
+Tuple *SortPhysicalOperator::current_tuple()
+{
+  if (index_ < tuple_to_sort_.size()) {
+    //return &(tuple_to_sort_[index_++]);
+    return tuple_to_sort_[index_++];
+  } else {
+    return nullptr;
+  }
+}
 
-bool SortPhysicalOperator::comp(SortTuple &tuple1, SortTuple &tuple2)
+bool SortPhysicalOperator::comp(Tuple *&tuple1, Tuple *&tuple2)
 {
   std::vector<std::pair<Field, bool> > sort_condition = order_fields_;
   const char                          *table_name     = nullptr;
@@ -82,11 +88,11 @@ bool SortPhysicalOperator::comp(SortTuple &tuple1, SortTuple &tuple2)
     field_name = sort_condition[pos].first.field_name();
     TupleCellSpec spec(table_name, field_name);
 
-    rc = tuple1.find_cell(spec, value1);
+    rc = tuple1->find_cell(spec, value1);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("failed to find value in tuple1!");
     }
-    rc = tuple2.find_cell(spec, value2);
+    rc = tuple2->find_cell(spec, value2);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("failed to find value in tuple2!");
     }
@@ -110,10 +116,10 @@ bool SortPhysicalOperator::comp(SortTuple &tuple1, SortTuple &tuple2)
   return true;
 }
 
-int SortPhysicalOperator::partition(std::vector<SortTuple> &arr, int low, int high)
+int SortPhysicalOperator::partition(std::vector<Tuple *> &arr, int low, int high)
 {
-  SortTuple pivot = arr[high];
-  int    i     = low - 1;
+  Tuple *pivot = arr[high];
+  int       i     = low - 1;
 
   for (int j = low; j < high; j++) {
     if (comp(arr[j], pivot)) {
@@ -127,7 +133,7 @@ int SortPhysicalOperator::partition(std::vector<SortTuple> &arr, int low, int hi
 }
 
 // Quicksort function
-void SortPhysicalOperator::quicksort(std::vector<SortTuple> &arr, int low, int high)
+void SortPhysicalOperator::quicksort(std::vector<Tuple *> &arr, int low, int high)
 {
   if (low < high) {
     int pivotIndex = partition(arr, low, high);

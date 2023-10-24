@@ -124,13 +124,14 @@ public:
   RowTuple() = default;
   virtual ~RowTuple()
   {
-    // if (!speces_.empty()) {
-    //   for (FieldExpr *spec : speces_) {
-    //     if (spec) {
-    //       delete spec;
+    // if (inited_) {
+    //   if (!speces_.empty()) {
+    //     for (FieldExpr *spec : speces_) {
+    //       if (spec) {
+    //         delete spec;
+    //       }
     //     }
     //   }
-    //   speces_.clear();
     // }
     speces_.clear();
   }

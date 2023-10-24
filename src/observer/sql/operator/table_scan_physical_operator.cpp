@@ -22,11 +22,9 @@ RC TableScanPhysicalOperator::open(Trx *trx)
 {
   RC rc = table_->get_record_scanner(record_scanner_, trx, readonly_);
   if (rc == RC::SUCCESS) {
-    tuple_.resize(400);
-    current_record_.resize(400);
-    for (int i = 0; i < tuple_.size(); i++) {
-      tuple_[i].set_schema(table_, table_->table_meta().field_metas());
-    }
+    // for (int i = 0; i < 2000; i++) {
+    //   tuple_[i].set_schema(table_, table_->table_meta().field_metas());
+    // }
   }
   trx_ = trx;
   return rc;
@@ -45,7 +43,10 @@ RC TableScanPhysicalOperator::next()
     if (rc != RC::SUCCESS) {
       return rc;
     }
+
+    tuple_[index].set_schema(table_, table_->table_meta().field_metas());
     tuple_[index].set_record(&(current_record_[index]));
+
     rc = filter(tuple_[index], filter_result);
     if (rc != RC::SUCCESS) {
       return rc;
@@ -53,8 +54,9 @@ RC TableScanPhysicalOperator::next()
 
     if (filter_result) {
       sql_debug("get a tuple: %s", tuple_[index].to_string().c_str());
-      correct_tuple_.emplace_back(tuple_[index]);
+      correct_tuple_[correct_index_] = (tuple_[index]);
       index++;
+      correct_index_++;
       break;
     } else {
       sql_debug("a tuple is filtered: %s", tuple_[index].to_string().c_str());
@@ -68,12 +70,20 @@ RC TableScanPhysicalOperator::next()
 RC TableScanPhysicalOperator::close() { return record_scanner_.close_scan(); }
 
 Tuple *TableScanPhysicalOperator::current_tuple()
-{
-  if (!correct_tuple_.empty()) {
-    return &(correct_tuple_.back());
-  } else {
-    return nullptr;
-  }
+{ 
+  //first i use vector instead of array
+  //question?  why the address in this vector may change???
+  //for example, in the sort_physical_operator,i called this function 
+  //and store the address of the last content in this vector,
+  //but when i add a content to this vector,add call the method again to store it
+  //the address of the content added before may changed.
+
+  // if (!correct_tuple_.empty()) {
+  //   return &(correct_tuple_.back());
+  // } else {
+  //   return nullptr;
+  // }
+  return &(correct_tuple_[correct_index_-1]);
 }
 
 string TableScanPhysicalOperator::param() const { return table_->name(); }

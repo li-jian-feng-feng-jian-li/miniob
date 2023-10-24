@@ -26,12 +26,13 @@ public:
   RC     next() override;
   RC     close() override;
   Tuple *current_tuple() override;
-  bool comp(SortTuple &tuple1, SortTuple &tuple2);
-  int partition(std::vector<SortTuple> &arr, int low, int high);
-  void quicksort(std::vector<SortTuple> &arr, int low, int high);
+  bool   comp(Tuple *&tuple1, Tuple *&tuple2);
+  int    partition(std::vector<Tuple *> &arr, int low, int high);
+  void   quicksort(std::vector<Tuple *> &arr, int low, int high);
+
 private:
   std::vector<std::pair<Field, bool> > order_fields_;
-  std::vector<SortTuple>               tuple_to_sort_;
-  int                                  index_ = 0;
+  std::vector<Tuple *>                 tuple_to_sort_;
+  int                                  index_    = 0;
   bool                                 finished_ = false;
 };

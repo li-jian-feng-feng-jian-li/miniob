@@ -51,9 +51,11 @@ private:
   Trx                                     *trx_      = nullptr;
   bool                                     readonly_ = false;
   RecordFileScanner                        record_scanner_;
-  std::vector<Record>                      current_record_;
-  std::vector<RowTuple>                    tuple_;
+  Record                                   current_record_[2000];
+  RowTuple                                 tuple_[2000];
   std::vector<std::unique_ptr<Expression>> predicates_;  // TODO chang predicate to table tuple filter
-  int index = 0;
-  std::vector<RowTuple>                    correct_tuple_;
+  int                                      index = 0;
+  RowTuple                                 correct_tuple_[2000];
+  int                                      correct_index_ = 0;
+  // std::vector<RowTuple>                    correct_tuple_;
 };

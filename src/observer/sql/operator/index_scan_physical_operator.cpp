@@ -54,9 +54,6 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
   index_scanner_ = index_scanner;
-
-  tuple_.set_schema(table_, table_->table_meta().field_metas());
-
   trx_ = trx;
   LOG_DEBUG("trx open successfully!");
   return RC::SUCCESS;
@@ -72,26 +69,29 @@ RC IndexScanPhysicalOperator::next()
   bool filter_result = false;
   while (RC::SUCCESS == (rc = index_scanner_->next_entry(&rid))) {
     LOG_DEBUG("index get a entry!");
-    rc = record_handler_->get_record(record_page_handler_, &rid, readonly_, &current_record_);
+    rc = record_handler_->get_record(record_page_handler_, &rid, readonly_, &current_record_[record_index_]);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-
-    tuple_.set_record(&current_record_);
+    tuple_[record_index_].set_schema(table_, table_->table_meta().field_metas());
+    tuple_[record_index_].set_record(&current_record_[record_index_]);
     LOG_DEBUG("start filter!");
-    rc = filter(tuple_, filter_result);
+    rc = filter(tuple_[record_index_], filter_result);
     if (rc != RC::SUCCESS) {
       return rc;
     }
 
     if (!filter_result) {
+      record_index_++;
       continue;
     }
 
-    rc = trx_->visit_record(table_, current_record_, readonly_);
+    rc = trx_->visit_record(table_, current_record_[record_index_], readonly_);
     if (rc == RC::RECORD_INVISIBLE) {
+      record_index_++;
       continue;
     } else {
+      record_index_++;
       return rc;
     }
   }
@@ -108,8 +108,8 @@ RC IndexScanPhysicalOperator::close()
 
 Tuple *IndexScanPhysicalOperator::current_tuple()
 {
-  tuple_.set_record(&current_record_);
-  return &tuple_;
+  //tuple_.set_record(&current_record_);
+  return &tuple_[record_index_-1];
 }
 
 void IndexScanPhysicalOperator::set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs)

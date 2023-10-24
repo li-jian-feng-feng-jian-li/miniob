@@ -25,8 +25,9 @@ See the Mulan PSL v2 for more details. */
 class IndexScanPhysicalOperator : public PhysicalOperator
 {
 public:
-  IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, std::vector<Value> left_value, std::vector<bool> left_inclusive,
-      std::vector<Value>  right_value, std::vector<bool> right_inclusive, int comp_num = 1);
+  IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, std::vector<Value> left_value,
+      std::vector<bool> left_inclusive, std::vector<Value> right_value, std::vector<bool> right_inclusive,
+      int comp_num = 1);
 
   // IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const char *values, int comp_num = 1);
 
@@ -56,14 +57,14 @@ private:
   IndexScanner      *index_scanner_  = nullptr;
   RecordFileHandler *record_handler_ = nullptr;
 
-  RecordPageHandler record_page_handler_;
-  Record            current_record_;
-  RowTuple          tuple_;
-
+  RecordPageHandler  record_page_handler_;
+  Record             current_record_[2000];
+  RowTuple           tuple_[2000];
+  int                record_index_ = 0;
   std::vector<Value> left_value_;
   std::vector<Value> right_value_;
-  std::vector<bool>              left_inclusive_  ;
-  std::vector<bool>              right_inclusive_ ;
+  std::vector<bool>  left_inclusive_;
+  std::vector<bool>  right_inclusive_;
   // const char                              *values_          = nullptr;
   int comp_num_ = 1;
   // bool                                     is_multiple      = false;

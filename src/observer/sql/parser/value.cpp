@@ -53,9 +53,15 @@ Value::Value(const char *s, bool is_date, int len /*= 0*/)
     set_string(s, len);
 }
 
+void Value::set_null() { is_null_ = true; }
+
 void Value::set_data(char *data, int length)
 {
   LOG_DEBUG("set_data() calls!");
+  if (is_null_) {
+    set_string(data, length);
+    return;
+  }
   switch (attr_type_) {
     case CHARS: {
       set_string(data, length);
@@ -107,6 +113,7 @@ void Value::set_boolean(bool val)
 void Value::set_string(const char *s, int len /*= 0*/)
 {
   LOG_DEBUG("set_string() calls!len is %d",len);
+  // TODO should i change the type of attr_type_ to its initial type?
   attr_type_ = CHARS;
   if (len > 0) {
     len = strnlen(s, len);
@@ -117,7 +124,7 @@ void Value::set_string(const char *s, int len /*= 0*/)
   length_ = str_value_.length();
   LOG_DEBUG("now str is %s,len is %d",str_value_.c_str(),length_);
 }
-// TODO
+
 void Value::set_date(const char *s, int len)
 {
   LOG_DEBUG("set_date() calls!");
@@ -136,6 +143,10 @@ void Value::set_date(const char *s, int len)
 void Value::set_value(const Value &value)
 {
   LOG_DEBUG("set_value() calls!");
+  if (value.is_null()) {
+    set_string(value.get_string().c_str());
+    return;
+  }
   switch (value.attr_type_) {
     case INTS: {
       set_int(value.get_int());
@@ -207,10 +218,16 @@ int Value::compare(const Value &other) const
         return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
       } break;
       case CHARS: {
-        return common::compare_string((void *)this->str_value_.c_str(),
-            this->str_value_.length(),
-            (void *)other.str_value_.c_str(),
-            other.str_value_.length());
+        if (is_null_) {
+          return -1;
+        } else if (other.is_null()) {
+          return 1;
+        } else {
+          return common::compare_string((void *)this->str_value_.c_str(),
+              this->str_value_.length(),
+              (void *)other.str_value_.c_str(),
+              other.str_value_.length());
+        }
       } break;
       case DATES: {
         return common::compare_int((void *)&this->num_value_.date_value_, (void *)&other.num_value_.date_value_);
@@ -228,13 +245,17 @@ int Value::compare(const Value &other) const
       return common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
     }
     if (other.attr_type_ == CHARS) {
-      float other_data;
-      try {
-        other_data = std::stof(other.str_value_);
-      } catch (std::invalid_argument &) {
-        other_data = 0.0;
+      if (other.is_null()) {
+        return 1;
+      } else {
+        float other_data;
+        try {
+          other_data = std::stof(other.str_value_);
+        } catch (std::invalid_argument &) {
+          other_data = 0.0;
+        }
+        return common::compare_float((void *)&this_data, (void *)&other_data);
       }
-      return common::compare_float((void *)&this_data, (void *)&other_data);
     }
 
   } else if (this->attr_type_ == FLOATS) {
@@ -244,30 +265,40 @@ int Value::compare(const Value &other) const
       return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
     }
     if (other.attr_type_ == CHARS) {
-      try {
-        other_data = std::stof(other.str_value_);
-      } catch (std::invalid_argument &) {
-        other_data = 0.0;
+      if (other.is_null()) {
+        return 1;
+      } else {
+        try {
+          other_data = std::stof(other.str_value_);
+        } catch (std::invalid_argument &) {
+          other_data = 0.0;
+        }
+        return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
       }
-      return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
     }
   } else if (this->attr_type_ == CHARS) {
-    float other_data;
-    if (other.attr_type_ == INTS)
-      other_data = other.num_value_.int_value_;
-    if (other.attr_type_ == FLOATS)
-      other_data = other.num_value_.float_value_;
-    float this_data;
-    try {
-      this_data = std::stof(this->str_value_);
-    } catch (std::invalid_argument &) {
-      this_data = 0.0;
+    if (is_null_) {
+      return -1;
+    } else {
+      float other_data;
+      if (other.attr_type_ == INTS)
+        other_data = other.num_value_.int_value_;
+      if (other.attr_type_ == FLOATS)
+        other_data = other.num_value_.float_value_;
+      float this_data;
+      try {
+        this_data = std::stof(this->str_value_);
+      } catch (std::invalid_argument &) {
+        this_data = 0.0;
+      }
+      return common::compare_float((void *)&this_data, (void *)&other_data);
     }
-    return common::compare_float((void *)&this_data, (void *)&other_data);
   }
   LOG_WARN("not supported");
   return -1;  // TODO return rc?
 }
+
+bool Value::is_null() const { return is_null_; }
 
 int Value::get_int() const
 {

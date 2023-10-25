@@ -64,22 +64,29 @@ public:
 
   int operator()(const char *v1, const char *v2) const
   {
-    switch (attr_type_) {
-      case INTS: {
-        return common::compare_int((void *)v1, (void *)v2);
-      } break;
-      case DATES: {
-        return common::compare_int((void *)v1, (void *)v2);
-      } break;
-      case FLOATS: {
-        return common::compare_float((void *)v1, (void *)v2);
-      }
-      case CHARS: {
-        return common::compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
-      }
-      default: {
-        ASSERT(false, "unknown attr type. %d", attr_type_);
-        return 0;
+    const char *s = "null";
+    if (memcmp(s, v1, 4) == 0) {
+      return -1;
+    } else if (memcmp(s, v2, 4)) {
+      return 1;
+    } else {
+      switch (attr_type_) {
+        case INTS: {
+          return common::compare_int((void *)v1, (void *)v2);
+        } break;
+        case DATES: {
+          return common::compare_int((void *)v1, (void *)v2);
+        } break;
+        case FLOATS: {
+          return common::compare_float((void *)v1, (void *)v2);
+        }
+        case CHARS: {
+          return common::compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
+        }
+        default: {
+          ASSERT(false, "unknown attr type. %d", attr_type_);
+          return 0;
+        }
       }
     }
   }
@@ -146,7 +153,8 @@ public:
       const RID *rid1 = (const RID *)(v1 + total_length_);
       const RID *rid2 = (const RID *)(v2 + total_length_);
       return RID::compare(rid1, rid2);
-    } else return 0;
+    } else
+      return 0;
   }
 
 private:

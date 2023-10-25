@@ -78,6 +78,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         TRX_BEGIN
         TRX_COMMIT
         TRX_ROLLBACK
+        NOT
+        NULL_T
         INT_T
         STRING_T
         FLOAT_T
@@ -129,6 +131,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<std::pair<std::string,Value> >        *update_list;
   RelAttrOrderNode *                order;
   std::vector<RelAttrOrderNode> *   order_list;
+  int                               nullable;    //0 ->not null,1 -> null
   char *                            string;
   int                               number;
   int                               index_type;
@@ -161,6 +164,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
+%type <nullable>            nullable
 %type <order>               order
 %type <order_list>          order_list
 %type <order_list>          order_attr
@@ -369,30 +373,33 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE nullable
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable = $6;
       free($1);
     }
-    | ID type
+    | ID type nullable
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       /*change the length of type,default*/
       $$->length = 4;
+      $$->nullable = $3;
       free($1);
     }
-    | ID TEXT_T
+    | ID TEXT_T nullable
     {
       $$ = new AttrInfoSqlNode;
       $$->type = CHARS;
       $$->name = $1;
       /*change the length of type,default*/
       $$->length = 4096;
+      $$->nullable = $3;
       free($1);
     }
     ;
@@ -404,6 +411,18 @@ type:
     | STRING_T { $$=CHARS; }
     | FLOAT_T  { $$=FLOATS; }
     | DATE_T   { $$=DATES; }    
+    ;
+nullable:
+    /* empty */
+    {
+      $$ = 0;
+    }
+    | NULL_T {
+      $$ = 1;
+    }
+    | NOT NULL_T {
+      $$ = 0;
+    }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE value_lists 
@@ -479,6 +498,11 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp,false);
       free(tmp);
+    }
+    |NULL_T {
+      const char *tmp = "null";
+      $$ = new Value(tmp,false);
+      $$->set_null();
     }
     ;
     

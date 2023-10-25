@@ -158,6 +158,11 @@ public:
 
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
+    bool nullable = field_meta->nullable();
+    const char      *s          = "null";
+    if (nullable && memcmp(s, this->record_->data() + field_meta->offset(), 4) == 0) {
+      cell.set_null();
+    }
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
     return RC::SUCCESS;

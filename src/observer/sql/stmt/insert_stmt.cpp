@@ -66,33 +66,43 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
     for (int j = 0; j < value_num; j++) {
       const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const AttrType   field_type = field_meta->type();
+      const bool       nullable   = field_meta->nullable();
       const AttrType   value_type = values[i][j].attr_type();
+      const bool       is_null    = values[i][j].is_null();
       if (field_type != value_type) {
         if (value_type == CHARS) {
-          std::string s = values[i][j].get_string();
-          LOG_DEBUG("value =%s",s);
-          if (field_type == INTS) {
-            int num;
-            try {
-              num = std::stof(s);
-              LOG_DEBUG("num =%d",num);
-            } catch (std::invalid_argument &) {
-              num = 0;
-            }
-            values[i][j].set_value(Value(num));
-          } else if (field_type == FLOATS) {
-            float num;
-            try {
-              num = std::stof(s);
-            } catch (std::invalid_argument &) {
-              num = 0.0;
-            }
-            values[i][j].set_value(Value(num));
-          } else {
-            LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          if (!is_null) {
+            std::string s = values[i][j].get_string();
+            LOG_DEBUG("value =%s",s);
+            if (field_type == INTS) {
+              int num;
+              try {
+                num = std::stof(s);
+                LOG_DEBUG("num =%d",num);
+              } catch (std::invalid_argument &) {
+                num = 0;
+              }
+              values[i][j].set_value(Value(num));
+            } else if (field_type == FLOATS) {
+              float num;
+              try {
+                num = std::stof(s);
+              } catch (std::invalid_argument &) {
+                num = 0.0;
+              }
+              values[i][j].set_value(Value(num));
+            } else {
+              LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
           table_name, field_meta->name(), field_type, value_type);
-            args_invalid = true;
-            break;
+              args_invalid = true;
+              break;
+            }
+          } else {
+            if (!nullable) {
+              LOG_WARN("can not insert a null value into a non nullable field, table=%s, field=%s, field type=%d",table_name, field_meta->name(), field_type);
+              args_invalid = true;
+              break;
+            }
           }
         }
 
@@ -131,12 +141,13 @@ RC InsertStmt::create(Db *db, InsertSqlNode &inserts, Stmt *&stmt)
     }
   }
 
-  if(args_invalid) return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  if (args_invalid)
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
 
   // everything alright
- 
+
   inserts.values.swap(values);
-  
+
   stmt = new InsertStmt(table, &inserts.values, static_cast<int>(inserts.values[0].size()));
   LOG_DEBUG("insert stmt finished!");
   return RC::SUCCESS;

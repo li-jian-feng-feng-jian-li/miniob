@@ -339,7 +339,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value     &value = values[i];
-    if (field->type() != value.attr_type()) {
+    if (field->type() != value.attr_type() && !value.is_null() ) {
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
                 table_meta_.name(), field->name(), field->type(), value.attr_type());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -494,7 +494,6 @@ RC Table::create_index(
               tmp_file.c_str(), meta_file.c_str(), index_name, name(), errno, strerror(errno));
     return RC::IOERR_WRITE;
   }
-
   table_meta_.swap(new_table_meta);
   LOG_DEBUG("table meta:%d",table_meta_.table_id());
 

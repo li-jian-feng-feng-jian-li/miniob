@@ -66,7 +66,7 @@ public:
    */
   void set_date(const char *s, int len = 0);
   void set_value(const Value &value);
-  void set_null();
+  void set_null(bool is_null = true);
 
   std::string to_string() const;
 

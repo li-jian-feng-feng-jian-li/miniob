@@ -162,6 +162,8 @@ public:
     const char      *s          = "null";
     if (nullable && memcmp(s, this->record_->data() + field_meta->offset(), 4) == 0) {
       cell.set_null();
+    } else {
+      cell.set_null(false);
     }
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());

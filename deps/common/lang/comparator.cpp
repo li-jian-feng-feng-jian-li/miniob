@@ -19,27 +19,45 @@ See the Mulan PSL v2 for more details. */
 
 namespace common {
 
+const char *NULL_VALUE = "null";
+
 int compare_int(void *arg1, void *arg2)
 {
-  int v1 = *(int *)arg1;
-  int v2 = *(int *)arg2;
-  LOG_DEBUG("v1 is %d",v1);
-  LOG_DEBUG("v2 is %d",v2);
-  return v1 - v2;
+  if (memcmp(NULL_VALUE, arg1, 4) == 0 && memcmp(NULL_VALUE, arg2, 4) == 0) {
+    return 0;
+  } else if (memcmp(NULL_VALUE, arg1, 4) == 0 && memcmp(NULL_VALUE, arg2, 4) != 0) {
+    return -1;
+  } else if (memcmp(NULL_VALUE, arg1, 4) != 0 && memcmp(NULL_VALUE, arg2, 4) == 0) {
+    return 1;
+  } else {
+    int v1 = *(int *)arg1;
+    int v2 = *(int *)arg2;
+    LOG_DEBUG("v1 is %d",v1);
+    LOG_DEBUG("v2 is %d",v2);
+    return v1 - v2;
+  }
 }
 
 int compare_float(void *arg1, void *arg2)
 {
-  float v1  = *(float *)arg1;
-  float v2  = *(float *)arg2;
-  float cmp = v1 - v2;
-  if (cmp > EPSILON) {
-    return 1;
-  }
-  if (cmp < -EPSILON) {
+  if (memcmp(NULL_VALUE, arg1, 4) == 0 && memcmp(NULL_VALUE, arg2, 4) == 0) {
+    return 0;
+  } else if (memcmp(NULL_VALUE, arg1, 4) == 0 && memcmp(NULL_VALUE, arg2, 4) != 0) {
     return -1;
+  } else if (memcmp(NULL_VALUE, arg1, 4) != 0 && memcmp(NULL_VALUE, arg2, 4) == 0) {
+    return 1;
+  } else {
+    float v1  = *(float *)arg1;
+    float v2  = *(float *)arg2;
+    float cmp = v1 - v2;
+    if (cmp > EPSILON) {
+      return 1;
+    }
+    if (cmp < -EPSILON) {
+      return -1;
+    }
+    return 0;
   }
-  return 0;
 }
 
 int compare_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_length)

@@ -53,7 +53,7 @@ Value::Value(const char *s, bool is_date, int len /*= 0*/)
     set_string(s, len);
 }
 
-void Value::set_null() { is_null_ = true; }
+void Value::set_null(bool is_null) { is_null_ = is_null; }
 
 void Value::set_data(char *data, int length)
 {
@@ -218,9 +218,11 @@ int Value::compare(const Value &other) const
         return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
       } break;
       case CHARS: {
-        if (is_null_) {
+        if (is_null_ && !other.is_null()) {
           return -1;
-        } else if (other.is_null()) {
+        } else if (is_null_ && other.is_null()) {
+          return 0;
+        } else if (!is_null_ && other.is_null()) {
           return 1;
         } else {
           return common::compare_string((void *)this->str_value_.c_str(),

@@ -45,9 +45,9 @@ private:
   //! 左表右表的真实对象是在PhysicalOperator::children_中，这里是为了写的时候更简单
   PhysicalOperator *left_  = nullptr;
   PhysicalOperator *right_ = nullptr;
-  Tuple            *left_tuple_[2000];
-  Tuple            *right_tuple_[2000];
-  JoinedTuple       joined_tuple_[2000];   //! 当前关联的左右两个tuple
+  Tuple            *left_tuple_[10000];
+  Tuple            *right_tuple_[800000];
+  JoinedTuple       joined_tuple_[800000];   //! 当前关联的左右两个tuple
   bool              round_done_   = true;  //! 右表遍历的一轮是否结束
   bool              right_closed_ = true;  //! 右表算子是否已经关闭
   int               index_        = 0;

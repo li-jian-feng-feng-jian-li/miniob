@@ -46,7 +46,6 @@ RC TableScanPhysicalOperator::next()
 
     tuple_[index].set_schema(table_, table_->table_meta().field_metas());
     tuple_[index].set_record(&(current_record_[index]));
-
     rc = filter(tuple_[index], filter_result);
     if (rc != RC::SUCCESS) {
       return rc;
@@ -70,20 +69,12 @@ RC TableScanPhysicalOperator::next()
 RC TableScanPhysicalOperator::close() { return record_scanner_.close_scan(); }
 
 Tuple *TableScanPhysicalOperator::current_tuple()
-{ 
-  //first i use vector instead of array
-  //question?  why the address in this vector may change???
-  //for example, in the sort_physical_operator,i called this function 
-  //and store the address of the last content in this vector,
-  //but when i add a content to this vector,add call the method again to store it
-  //the address of the content added before may changed.
-
-  // if (!correct_tuple_.empty()) {
-  //   return &(correct_tuple_.back());
-  // } else {
-  //   return nullptr;
-  // }
-  return &(correct_tuple_[correct_index_-1]);
+{
+  if (correct_index_ >= 1) {
+    return &(correct_tuple_[correct_index_ - 1]);
+  } else {
+    return nullptr;
+  }
 }
 
 string TableScanPhysicalOperator::param() const { return table_->name(); }

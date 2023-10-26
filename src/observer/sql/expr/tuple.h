@@ -124,12 +124,10 @@ public:
   RowTuple() = default;
   virtual ~RowTuple()
   {
-    // if (inited_) {
-    //   if (!speces_.empty()) {
-    //     for (FieldExpr *spec : speces_) {
-    //       if (spec) {
-    //         delete spec;
-    //       }
+    // if (!speces_.empty()) {
+    //   for (FieldExpr *spec : speces_) {
+    //     if (spec) {
+    //       delete spec;
     //     }
     //   }
     // }
@@ -158,7 +156,7 @@ public:
 
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
-    bool nullable = field_meta->nullable();
+    bool             nullable   = field_meta->nullable();
     const char      *s          = "null";
     if (nullable && memcmp(s, this->record_->data() + field_meta->offset(), 4) == 0) {
       cell.set_null();

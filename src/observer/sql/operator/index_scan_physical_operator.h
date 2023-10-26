@@ -58,8 +58,8 @@ private:
   RecordFileHandler *record_handler_ = nullptr;
 
   RecordPageHandler  record_page_handler_;
-  Record             current_record_[2000];
-  RowTuple           tuple_[2000];
+  Record             current_record_[10000];
+  RowTuple           tuple_[10000];
   int                record_index_ = 0;
   std::vector<Value> left_value_;
   std::vector<Value> right_value_;

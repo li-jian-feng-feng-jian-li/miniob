@@ -54,7 +54,7 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
   index_scanner_ = index_scanner;
-  trx_ = trx;
+  trx_           = trx;
   LOG_DEBUG("trx open successfully!");
   return RC::SUCCESS;
 }

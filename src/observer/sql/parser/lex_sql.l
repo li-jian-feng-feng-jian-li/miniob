@@ -114,6 +114,7 @@ BEGIN                                   RETURN_TOKEN(TRX_BEGIN);
 COMMIT                                  RETURN_TOKEN(TRX_COMMIT);
 ROLLBACK                                RETURN_TOKEN(TRX_ROLLBACK);
 LIKE                                    RETURN_TOKEN(LK);
+IS                                      RETURN_TOKEN(IS);
 NOT                                     RETURN_TOKEN(NOT);
 NULL                                    RETURN_TOKEN(NULL_T);
 INT                                     RETURN_TOKEN(INT_T);

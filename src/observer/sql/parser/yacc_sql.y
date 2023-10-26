@@ -78,6 +78,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         TRX_BEGIN
         TRX_COMMIT
         TRX_ROLLBACK
+        IS
         NOT
         NULL_T
         INT_T
@@ -851,6 +852,32 @@ condition:
       delete $1;
       delete $3;
     }
+    | value comp_op NULL_T
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 0;
+      $$->left_value = *$1;
+      $$->right_is_attr = 0;
+      const char *null_expr = "null";
+      Value *null_value = new Value(null_expr,false);
+      $$->right_value = *null_value;
+      delete null_value;
+      $$->comp = $2;
+      delete $1;
+    }
+    | rel_attr comp_op NULL_T
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 1;
+      $$->left_attr = *$1;
+      $$->right_is_attr = 0;
+      const char *null_expr = "null";
+      Value *null_value = new Value(null_expr,false);
+      $$->right_value = *null_value;
+      delete null_value;
+      $$->comp = $2;
+      delete $1;
+    }
     ;
 
 comp_op:
@@ -862,6 +889,8 @@ comp_op:
     | NE { $$ = NOT_EQUAL; }
     | LK { $$ = LIKE;}
     | NK { $$ = NLIKE;}
+    | IS NOT { $$ = IS_NOT_NULL;}
+    | IS { $$ = IS_NULL;}
     ;
 
 load_data_stmt:

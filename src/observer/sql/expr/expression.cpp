@@ -92,26 +92,40 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
   result         = false;
   switch (comp_) {
     case EQUAL_TO: {
-      result = (0 == cmp_result);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else
+        result = (0 == cmp_result);
     } break;
     case LESS_EQUAL: {
-      result = (cmp_result <= 0);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else
+        result = (cmp_result <= 0);
     } break;
     case NOT_EQUAL: {
       if (left.is_null() || right.is_null()) {
         result = false;
-      } else {
+      } else
         result = (cmp_result != 0);
-      }
     } break;
     case LESS_THAN: {
-      result = (cmp_result < 0);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else
+        result = (cmp_result < 0);
     } break;
     case GREAT_EQUAL: {
-      result = (cmp_result >= 0);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else
+        result = (cmp_result >= 0);
     } break;
     case GREAT_THAN: {
-      result = (cmp_result > 0);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else
+        result = (cmp_result > 0);
     } break;
     case LIKE: {
       // result = true;
@@ -134,7 +148,6 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
       rc = RC::INTERNAL;
     } break;
   }
-
   return rc;
 }
 

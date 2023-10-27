@@ -87,54 +87,37 @@ ComparisonExpr::~ComparisonExpr() {}
 
 RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &result) const
 {
-  RC  rc         = RC::SUCCESS;
+  RC rc = RC::SUCCESS;
+  if ((left.is_null() || right.is_null()) && comp_ != IS_NULL && comp_ != IS_NOT_NULL) {
+    result = false;
+    return rc;
+  }
+
   int cmp_result = left.compare(right);
   result         = false;
   switch (comp_) {
     case EQUAL_TO: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (0 == cmp_result);
+      result = (0 == cmp_result);
     } break;
     case LESS_EQUAL: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (cmp_result <= 0);
+      result = (cmp_result <= 0);
     } break;
     case NOT_EQUAL: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (cmp_result != 0);
+      result = (cmp_result != 0);
     } break;
     case LESS_THAN: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (cmp_result < 0);
+      result = (cmp_result < 0);
     } break;
     case GREAT_EQUAL: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (cmp_result >= 0);
+      result = (cmp_result >= 0);
     } break;
     case GREAT_THAN: {
-      if (left.is_null() || right.is_null()) {
-        result = false;
-      } else
-        result = (cmp_result > 0);
+      result = (cmp_result > 0);
     } break;
     case LIKE: {
-      // result = true;
-
       result = isMatch(right.to_string(), left.to_string());
     } break;
     case NLIKE: {
-      // saveStringToFile(left.to_string(),"test.txt");
-      // saveStringToFile(right.to_string(),"test2.txt");
       result = !isMatch(right.to_string(), left.to_string());
     } break;
     case IS_NULL: {

@@ -189,7 +189,9 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       (!condition.right_is_attr && condition.right_value.is_null())) {
     can_be_compared = true;
   }
+
   if (!can_be_compared) {
     rc = RC::INVALID_ARGUMENT;
   }
+  return rc;
 }

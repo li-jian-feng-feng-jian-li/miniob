@@ -98,7 +98,11 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
       result = (cmp_result <= 0);
     } break;
     case NOT_EQUAL: {
-      result = (cmp_result != 0);
+      if (left.is_null() || right.is_null()) {
+        result = false;
+      } else {
+        result = (cmp_result != 0);
+      }
     } break;
     case LESS_THAN: {
       result = (cmp_result < 0);

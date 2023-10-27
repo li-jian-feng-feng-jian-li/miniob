@@ -18,7 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <vector>
 #include <string>
-
+#include <variant>
 #include "sql/parser/value.h"
 
 class Expression;
@@ -138,16 +138,24 @@ struct DeleteSqlNode
   std::vector<ConditionSqlNode> conditions;
 };
 
+struct UpdateValueSqlNode
+{
+  bool                               is_value;
+  std::variant<SelectSqlNode, Value> update_value;
+  UpdateValueSqlNode(bool is_value, SelectSqlNode select_value) : is_value(is_value), update_value(select_value) {}
+  UpdateValueSqlNode(bool is_value, Value value_value) : is_value(is_value), update_value(value_value) {}
+};
+
 /**
  * @brief 描述一个update语句
  * @ingroup SQLParser
  */
 struct UpdateSqlNode
 {
-  std::string                   relation_name;   ///< Relation to update
-  std::vector<std::string>      attribute_name;  ///< 更新的字段，仅支持一个字段
-  std::vector<Value>            value;           ///< 更新的值，仅支持一个字段
-  std::vector<ConditionSqlNode> conditions;
+  std::string                     relation_name;  ///< Relation to update
+  std::vector<std::string>        attribute_name;
+  std::vector<UpdateValueSqlNode> value;
+  std::vector<ConditionSqlNode>   conditions;
 };
 
 /**

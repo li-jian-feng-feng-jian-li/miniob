@@ -142,7 +142,10 @@ union YYSTYPE
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list;
-  std::vector<std::pair<std::string,Value> >        *update_list;
+
+  UpdateValueSqlNode *              update_value;
+
+  std::vector<std::pair<std::string,UpdateValueSqlNode> >        *update_list;
   RelAttrOrderNode *                order;
   std::vector<RelAttrOrderNode> *   order_list;
   int                               nullable;    //0 ->not null,1 -> null
@@ -151,7 +154,7 @@ union YYSTYPE
   int                               index_type;
   float                             floats;
 
-#line 155 "yacc_sql.hpp"
+#line 158 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

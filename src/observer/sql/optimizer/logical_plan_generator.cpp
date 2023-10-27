@@ -237,11 +237,11 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   LOG_INFO("update logical plan created!");
-  Table                    *table       = update_stmt->table();
-  FilterStmt               *filter_stmt = update_stmt->filter_stmt();
-  std::vector<const char *> field_name  = update_stmt->field_name();
-  std::vector<Value>        value       = update_stmt->value();
-  std::vector<Field>        fields;
+  Table                          *table       = update_stmt->table();
+  FilterStmt                     *filter_stmt = update_stmt->filter_stmt();
+  std::vector<const char *>       field_name  = update_stmt->field_name();
+  std::vector<UpdateValueSqlNode> value       = update_stmt->value();
+  std::vector<Field>              fields;
   for (int i = table->table_meta().sys_field_num(); i < table->table_meta().field_num(); i++) {
     const FieldMeta *field_meta = table->table_meta().field(i);
     fields.push_back(Field(table, field_meta));
@@ -256,6 +256,16 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   }
 
   unique_ptr<LogicalOperator> update_oper(new UpdateLogicalOperator(table, value, field_name));
+
+  // add select_oper
+  for (int i = 0; i < update_stmt->select_stmt().size(); i++) {
+    unique_ptr<LogicalOperator> select_oper;
+    RC                          rc = create_plan((update_stmt->select_stmt())[i], select_oper);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    update_oper->add_child(std::move(select_oper));
+  }
 
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));

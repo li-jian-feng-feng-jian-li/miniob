@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 class Table;
 class FilterStmt;
+class SelectStmt;
 
 /**
  * @brief 更新语句
@@ -28,21 +29,24 @@ class UpdateStmt : public Stmt
 {
 public:
   UpdateStmt() = default;
-  UpdateStmt(Table *table, std::vector<Value> value, FilterStmt *filter_stmt, std::vector<const char *> field_name);
+  UpdateStmt(Table *table, std::vector<UpdateValueSqlNode> value, FilterStmt *filter_stmt,
+      std::vector<SelectStmt *> select_stmt, std::vector<const char *> field_name);
   StmtType type() const override { return StmtType::UPDATE; }
 
 public:
   static RC create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table               *table() const { return table_; }
-  std::vector<Value> value() const { return value_; }
-  FilterStmt          *filter_stmt() const { return filter_stmt_; }
-  std::vector<const char *>  field_name() const { return field_name_; }
+  Table                          *table() const { return table_; }
+  std::vector<UpdateValueSqlNode> value() const { return value_; }
+  FilterStmt                     *filter_stmt() const { return filter_stmt_; }
+  std::vector<const char *>       field_name() const { return field_name_; }
+  std::vector<SelectStmt *>       select_stmt() const { return select_stmt_; }
 
 private:
-  Table               *table_ = nullptr;
-  std::vector<Value> value_;
-  FilterStmt          *filter_stmt_ = nullptr;
-  std::vector<const char *>  field_name_;
+  Table                          *table_ = nullptr;
+  std::vector<UpdateValueSqlNode> value_;
+  FilterStmt                     *filter_stmt_ = nullptr;
+  std::vector<const char *>       field_name_;
+  std::vector<SelectStmt *>       select_stmt_;
 };

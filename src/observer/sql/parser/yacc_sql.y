@@ -129,7 +129,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list;
-  std::vector<std::pair<std::string,Value> >        *update_list;
+
+  UpdateValueSqlNode *              update_value;
+
+  std::vector<std::pair<std::string,UpdateValueSqlNode> >        *update_list;
   RelAttrOrderNode *                order;
   std::vector<RelAttrOrderNode> *   order_list;
   int                               nullable;    //0 ->not null,1 -> null
@@ -156,6 +159,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <join_list>           join_list
+%type <update_value>        update_value;
 %type <update_list>         update_list
 %type <index_type>          index_type
 %type <value_list>          value_list
@@ -520,7 +524,7 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     }
     ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value update_list where 
+    UPDATE ID SET ID EQ update_value update_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       if($7 != nullptr){
@@ -545,13 +549,25 @@ update_list:
   {
     $$ = nullptr;
   } 
-  | COMMA ID EQ value update_list {
+  | COMMA ID EQ update_value update_list {
     if($5 != nullptr){
       $$ = $5;
     } else {
-      $$ = new std::vector<std::pair<std::string,Value> >;
+      $$ = new std::vector<std::pair<std::string,UpdateValueSqlNode> >;
     }
     $$->emplace_back(std::make_pair($2,*$4));
+  }
+  ;
+update_value:
+  value
+  {
+    $$ = new UpdateValueSqlNode(true,*$1);
+    delete $1;
+  }
+  | LBRACE select_stmt RBRACE
+  {
+    $$ = new UpdateValueSqlNode(false,$2->selection);
+    delete $2;
   }
   ;
   

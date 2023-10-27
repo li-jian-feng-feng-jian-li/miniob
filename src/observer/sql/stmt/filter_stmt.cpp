@@ -157,38 +157,39 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
    * case 2 : neither is attr
    * case 3 : one is attr and the other is not attr
    */
-  // bool can_be_compared = false;
-  // if (condition.left_is_attr && condition.right_is_attr) {
-  //   if ((left_attr_type == DATES && right_attr_type == DATES) ||
-  //       (left_attr_type != DATES && right_attr_type != DATES)) {
-  //     can_be_compared = true;
-  //   }
-  // }
+  bool can_be_compared = false;
+  if (condition.left_is_attr && condition.right_is_attr) {
+    if ((left_attr_type == DATES && right_attr_type == DATES) ||
+        (left_attr_type != DATES && right_attr_type != DATES)) {
+      can_be_compared = true;
+    }
+  }
 
-  // else if (!condition.left_is_attr && !condition.right_is_attr) {
-  //   if ((condition.left_value.attr_type() == DATES && condition.right_value.attr_type() == DATES) ||
-  //       (condition.left_value.attr_type() != DATES && condition.right_value.attr_type() != DATES)) {
-  //     can_be_compared = true;
-  //   } 
-  // }
+  else if (!condition.left_is_attr && !condition.right_is_attr) {
+    if ((condition.left_value.attr_type() == DATES && condition.right_value.attr_type() == DATES) ||
+        (condition.left_value.attr_type() != DATES && condition.right_value.attr_type() != DATES)) {
+      can_be_compared = true;
+    }
+  }
 
-  // else {
-  //   if (condition.left_is_attr) {
-  //     if ((left_attr_type == DATES && condition.right_value.attr_type() == DATES) ||
-  //         (left_attr_type != DATES && condition.right_value.attr_type() != DATES)) {
-  //       can_be_compared = true;
-  //     } 
-  //   } else {
-  //     if ((condition.left_value.attr_type() == DATES && right_attr_type == DATES) ||
-  //         (condition.left_value.attr_type() != DATES && right_attr_type != DATES)) {
-  //       can_be_compared = true;
-  //     } 
-  //   }
-  // }
-
-  // if (!can_be_compared) {
-  //   rc = RC::INVALID_ARGUMENT;
-  // }
-
-  return rc;
+  else {
+    if (condition.left_is_attr) {
+      if ((left_attr_type == DATES && condition.right_value.attr_type() == DATES) ||
+          (left_attr_type != DATES && condition.right_value.attr_type() != DATES)) {
+        can_be_compared = true;
+      }
+    } else {
+      if ((condition.left_value.attr_type() == DATES && right_attr_type == DATES) ||
+          (condition.left_value.attr_type() != DATES && right_attr_type != DATES)) {
+        can_be_compared = true;
+      }
+    }
+  }
+  if ((!condition.left_is_attr && condition.left_value.is_null()) ||
+      (!condition.right_is_attr && condition.right_value.is_null())) {
+    can_be_compared = true;
+  }
+  if (!can_be_compared) {
+    rc = RC::INVALID_ARGUMENT;
+  }
 }

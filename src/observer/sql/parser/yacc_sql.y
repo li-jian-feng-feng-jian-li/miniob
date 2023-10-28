@@ -868,32 +868,6 @@ condition:
       delete $1;
       delete $3;
     }
-    | value comp_op NULL_T
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
-      $$->left_value = *$1;
-      $$->right_is_attr = 0;
-      const char *null_expr = "null";
-      Value *null_value = new Value(null_expr,false);
-      $$->right_value = *null_value;
-      delete null_value;
-      $$->comp = $2;
-      delete $1;
-    }
-    | rel_attr comp_op NULL_T
-    {
-      $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
-      $$->left_attr = *$1;
-      $$->right_is_attr = 0;
-      const char *null_expr = "null";
-      Value *null_value = new Value(null_expr,false);
-      $$->right_value = *null_value;
-      delete null_value;
-      $$->comp = $2;
-      delete $1;
-    }
     ;
 
 comp_op:

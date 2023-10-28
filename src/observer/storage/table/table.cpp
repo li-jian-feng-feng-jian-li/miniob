@@ -339,7 +339,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value     &value = values[i];
-    if (field->type() != value.attr_type() && !value.is_null() ) {
+    if (field->type() != value.attr_type() && !value.is_null()) {
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
                 table_meta_.name(), field->name(), field->type(), value.attr_type());
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -535,13 +535,13 @@ RC Table::update_record(const Record &old_record, std::vector<Value> value, std:
   for (int i = 0; i < value.size(); i++) {
     const FieldMeta *field_meta = table_meta_.field(field_name[i]);
 
-    //check if the field is nullale when value is null;
-    if(value[i].is_null() && !field_meta->nullable()){
+    // check if the field is nullale when value is null;
+    if (value[i].is_null() && !field_meta->nullable()) {
       LOG_WARN("field %s can not be null!",field_meta->name());
       rc = RC::INVALID_ARGUMENT;
       return rc;
     }
-    
+
     // store old record and recover this when update fails
     char *old_value = (char *)malloc(field_meta->len());
     memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());
@@ -578,7 +578,7 @@ RC Table::update_record(const Record &old_record, std::vector<Value> value, std:
     }
     return rc;
   } else {
-    //persistance the update
+    // persistance the update
     rc = record_handler_->update_record(&old_record.rid(), value, field_metas);
   }
 

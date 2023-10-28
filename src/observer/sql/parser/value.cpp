@@ -184,6 +184,10 @@ const char *Value::data() const
 std::string Value::to_string() const
 {
   std::stringstream os;
+  if(is_null_){
+    os << "null";
+    return os.str();
+  }
   switch (attr_type_) {
     case INTS: {
       os << num_value_.int_value_;

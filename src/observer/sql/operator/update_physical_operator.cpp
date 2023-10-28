@@ -87,6 +87,7 @@ RC UpdatePhysicalOperator::next()
         return rc;
       } else if (select_value.size() == 0) {
         Value *value = new Value("null", false);
+        value->set_null();
         update_value.emplace_back(*value);
         delete value;
       } else {

@@ -534,6 +534,14 @@ RC Table::update_record(const Record &old_record, std::vector<Value> value, std:
   std::vector<const FieldMeta *> field_metas;
   for (int i = 0; i < value.size(); i++) {
     const FieldMeta *field_meta = table_meta_.field(field_name[i]);
+
+    //check if the field is nullale when value is null;
+    if(value[i].is_null() && !field_meta->nullable()){
+      LOG_WARN("field %s can not be null!",field_meta->name());
+      rc = RC::INVALID_ARGUMENT;
+      return rc;
+    }
+    
     // store old record and recover this when update fails
     char *old_value = (char *)malloc(field_meta->len());
     memcpy(old_value, old_record.data() + field_meta->offset(), field_meta->len());

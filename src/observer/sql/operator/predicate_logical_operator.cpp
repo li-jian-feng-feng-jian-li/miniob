@@ -14,7 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/predicate_logical_operator.h"
 
-PredicateLogicalOperator::PredicateLogicalOperator(std::unique_ptr<Expression> expression)
+PredicateLogicalOperator::PredicateLogicalOperator(
+    std::unique_ptr<Expression> expression, std::vector<std::pair<Field, CompOp> > other_exprs)
 {
   expressions_.emplace_back(std::move(expression));
+  other_exprs_.swap(other_exprs);
 }

@@ -57,7 +57,7 @@ void Value::set_null(bool is_null) { is_null_ = is_null; }
 
 void Value::set_data(char *data, int length)
 {
-  LOG_DEBUG("set_data() calls!");
+  // LOG_DEBUG("set_data() calls!");
   if (is_null_) {
     set_string(data, length);
     return;
@@ -66,7 +66,6 @@ void Value::set_data(char *data, int length)
     case CHARS: {
       set_string(data, length);
     } break;
-    // TODO
     case DATES: {
       num_value_.date_value_ = *(int *)data;
       length_                = length;
@@ -90,7 +89,7 @@ void Value::set_data(char *data, int length)
 }
 void Value::set_int(int val)
 {
-  LOG_DEBUG("set_int() calls!");
+  // LOG_DEBUG("set_int() calls!");
   attr_type_            = INTS;
   num_value_.int_value_ = val;
   length_               = sizeof(val);
@@ -98,21 +97,21 @@ void Value::set_int(int val)
 
 void Value::set_float(float val)
 {
-  LOG_DEBUG("set_float() calls!");
+  // LOG_DEBUG("set_float() calls!");
   attr_type_              = FLOATS;
   num_value_.float_value_ = val;
   length_                 = sizeof(val);
 }
 void Value::set_boolean(bool val)
 {
-  LOG_DEBUG("set_boolean() calls!");
+  // LOG_DEBUG("set_boolean() calls!");
   attr_type_             = BOOLEANS;
   num_value_.bool_value_ = val;
   length_                = sizeof(val);
 }
 void Value::set_string(const char *s, int len /*= 0*/)
 {
-  LOG_DEBUG("set_string() calls!len is %d",len);
+  // LOG_DEBUG("set_string() calls!len is %d",len);
   // TODO should i change the type of attr_type_ to its initial type?
   attr_type_ = CHARS;
   if (len > 0) {
@@ -122,12 +121,12 @@ void Value::set_string(const char *s, int len /*= 0*/)
     str_value_.assign(s);
   }
   length_ = str_value_.length();
-  LOG_DEBUG("now str is %s,len is %d",str_value_.c_str(),length_);
+  // LOG_DEBUG("now str is %s,len is %d",str_value_.c_str(),length_);
 }
 
 void Value::set_date(const char *s, int len)
 {
-  LOG_DEBUG("set_date() calls!");
+  // LOG_DEBUG("set_date() calls!");
   attr_type_ = DATES;
   int y, m, d;
   sscanf(s, "%d-%d-%d", &y, &m, &d);
@@ -142,7 +141,7 @@ void Value::set_date(const char *s, int len)
 
 void Value::set_value(const Value &value)
 {
-  LOG_DEBUG("set_value() calls!");
+  // LOG_DEBUG("set_value() calls!");
   if (value.is_null()) {
     set_string(value.get_string().c_str());
     return;

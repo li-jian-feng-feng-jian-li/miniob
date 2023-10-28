@@ -20,67 +20,56 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 #include "sql/expr/expression.h"
 
-
 class Db;
 class Table;
 class FieldMeta;
+class SelectStmt;
 
-struct FilterObj 
+struct FilterObj
 {
-  bool is_attr;
-  Field field;
-  Value value;
+  bool           is_attr;
+  bool           is_subq = false;
+  Field          field;
+  Value          value;
+  SelectStmt *sub_select;
 
   void init_attr(const Field &field)
   {
-    is_attr = true;
+    is_attr     = true;
     this->field = field;
   }
 
   void init_value(const Value &value)
   {
-    is_attr = false;
+    is_attr     = false;
     this->value = value;
+  }
+
+  void init_subq(SelectStmt *select)
+  {
+    is_subq          = true;
+    this->sub_select = select;
   }
 };
 
-class FilterUnit 
+class FilterUnit
 {
 public:
   FilterUnit() = default;
-  ~FilterUnit()
-  {}
+  ~FilterUnit() {}
 
-  void set_comp(CompOp comp)
-  {
-    comp_ = comp;
-  }
+  void set_comp(CompOp comp) { comp_ = comp; }
 
-  CompOp comp() const
-  {
-    return comp_;
-  }
+  CompOp comp() const { return comp_; }
 
-  void set_left(const FilterObj &obj)
-  {
-    left_ = obj;
-  }
-  void set_right(const FilterObj &obj)
-  {
-    right_ = obj;
-  }
+  void set_left(const FilterObj &obj) { left_ = obj; }
+  void set_right(const FilterObj &obj) { right_ = obj; }
 
-  const FilterObj &left() const
-  {
-    return left_;
-  }
-  const FilterObj &right() const
-  {
-    return right_;
-  }
+  const FilterObj &left() const { return left_; }
+  const FilterObj &right() const { return right_; }
 
 private:
-  CompOp comp_ = NO_OP;
+  CompOp    comp_ = NO_OP;
   FilterObj left_;
   FilterObj right_;
 };
@@ -89,17 +78,14 @@ private:
  * @brief Filter/谓词/过滤语句
  * @ingroup Statement
  */
-class FilterStmt 
+class FilterStmt
 {
 public:
   FilterStmt() = default;
   virtual ~FilterStmt();
 
 public:
-  const std::vector<FilterUnit *> &filter_units() const
-  {
-    return filter_units_;
-  }
+  const std::vector<FilterUnit *> &filter_units() const { return filter_units_; }
 
 public:
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,

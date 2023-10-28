@@ -63,6 +63,10 @@ enum CompOp
   NLIKE,
   IS_NULL,
   IS_NOT_NULL,
+  IN_,
+  NOT_IN,
+  EX,
+  NOT_EX,
   NO_OP
 };
 
@@ -74,6 +78,7 @@ enum CompOp
  * 左边和右边理论上都可以是任意的数据，比如是字段（属性，列），也可以是数值常量。
  * 这个结构中记录的仅仅支持字段和值。
  */
+struct SelectSqlNode;
 struct ConditionSqlNode
 {
   int left_is_attr;              ///< TRUE if left-hand side is an attribute
@@ -85,6 +90,8 @@ struct ConditionSqlNode
                                  ///< 1时，操作符右边是属性名，0时，是属性值
   RelAttrSqlNode right_attr;     ///< right-hand side attribute if right_is_attr = TRUE 右边的属性
   Value          right_value;    ///< right-hand side value if right_is_attr = FALSE
+  bool           need_sub_query = false;
+  SelectSqlNode *sub_select;
 };
 
 /**

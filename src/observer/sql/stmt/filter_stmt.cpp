@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "sql/stmt/filter_stmt.h"
+#include "sql/stmt/select_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
@@ -94,48 +95,61 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   AttrType left_attr_type;
   AttrType right_attr_type;
 
-  if (condition.left_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
+  if (condition.comp != EX && condition.comp != NOT_EX) {
+    if (condition.left_is_attr) {
+      Table           *table = nullptr;
+      const FieldMeta *field = nullptr;
+      rc                     = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      Field     left_field = Field(table, field);
+      filter_obj.init_attr(left_field);
+      filter_unit->set_left(filter_obj);
+      left_attr_type = left_field.attr_type();
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.left_value);
+      filter_unit->set_left(filter_obj);
     }
-    FilterObj filter_obj;
-    Field     left_field = Field(table, field);
-    filter_obj.init_attr(left_field);
-    filter_unit->set_left(filter_obj);
-    left_attr_type = left_field.attr_type();
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.left_value);
-    filter_unit->set_left(filter_obj);
   }
 
-  if (condition.right_is_attr) {
-    Table           *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc                     = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
+  if (condition.need_sub_query) {
+    FilterObj filter_obj;
+    Stmt     *select_stmt = nullptr;
+    RC        rc          = SelectStmt::create(db, *condition.sub_select, select_stmt);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
+      LOG_WARN("falied to create select stmt in filter stmt: %s",strrc(rc));
       return rc;
     }
-    FilterObj filter_obj;
-    Field     right_field = Field(table, field);
-    filter_obj.init_attr(right_field);
+    filter_obj.init_subq(static_cast<SelectStmt *>(select_stmt));
     filter_unit->set_right(filter_obj);
-    right_attr_type = right_field.attr_type();
   } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.right_value);
-    filter_unit->set_right(filter_obj);
+    if (condition.right_is_attr) {
+      Table           *table = nullptr;
+      const FieldMeta *field = nullptr;
+      rc                     = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      Field     right_field = Field(table, field);
+      filter_obj.init_attr(right_field);
+      filter_unit->set_right(filter_obj);
+      right_attr_type = right_field.attr_type();
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.right_value);
+      filter_unit->set_right(filter_obj);
+    }
   }
 
   filter_unit->set_comp(comp);
 
-  // check date in conditions
-
+  // check date in conditions,consider about leap year,and days in different months
   if (!condition.left_is_attr && condition.left_value.attr_type() == DATES) {
     int date_value = condition.left_value.get_date();
     if (date_value == 0) {
@@ -149,45 +163,18 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
   }
 
-  // 检查两个类型是否能够比较
-  // TODO finish typecast
-  /**
-   * @author ljf
-   * case 1 : both are attr
-   * case 2 : neither is attr
-   * case 3 : one is attr and the other is not attr
-   */
-  bool can_be_compared = false;
-  if (condition.left_is_attr && condition.right_is_attr) {
-    if ((left_attr_type == DATES && right_attr_type == DATES) ||
-        (left_attr_type != DATES && right_attr_type != DATES)) {
-      can_be_compared = true;
-    }
+  //check date comp char(incorrect date format will be cast to char type
+  //,so i use this comp to find invalid date value,consider about more than 12 months etc)
+  bool can_be_compared = true;
+
+  if(condition.left_is_attr && left_attr_type == DATES 
+  && !condition.right_is_attr && condition.right_value.attr_type() == CHARS) {
+    can_be_compared = false;
   }
 
-  else if (!condition.left_is_attr && !condition.right_is_attr) {
-    if ((condition.left_value.attr_type() == DATES && condition.right_value.attr_type() == DATES) ||
-        (condition.left_value.attr_type() != DATES && condition.right_value.attr_type() != DATES)) {
-      can_be_compared = true;
-    }
-  }
-
-  else {
-    if (condition.left_is_attr) {
-      if ((left_attr_type == DATES && condition.right_value.attr_type() == DATES) ||
-          (left_attr_type != DATES && condition.right_value.attr_type() != DATES)) {
-        can_be_compared = true;
-      }
-    } else {
-      if ((condition.left_value.attr_type() == DATES && right_attr_type == DATES) ||
-          (condition.left_value.attr_type() != DATES && right_attr_type != DATES)) {
-        can_be_compared = true;
-      }
-    }
-  }
-  if ((!condition.left_is_attr && condition.left_value.is_null()) ||
-      (!condition.right_is_attr && condition.right_value.is_null())) {
-    can_be_compared = true;
+  if(condition.right_is_attr && right_attr_type == DATES
+  && !condition.left_is_attr && condition.left_value.attr_type() == CHARS){
+    can_be_compared = false;
   }
 
   if (!can_be_compared) {

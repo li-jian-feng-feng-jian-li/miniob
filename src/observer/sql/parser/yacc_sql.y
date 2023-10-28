@@ -95,6 +95,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INNER
         JOIN
         WHERE
+        IN
+        EXISTS
         AND
         SET
         ON
@@ -868,6 +870,42 @@ condition:
       delete $1;
       delete $3;
     }
+    | value comp_op LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 0;
+      $$->left_value = *$1;
+      $$->need_sub_query = true;
+      $$->sub_select = &($4->selection);
+      $$->comp = $2;
+
+      delete $1;
+    }
+    | rel_attr comp_op LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 1;
+      $$->left_attr = *$1;
+      $$->need_sub_query = true;
+      $$->sub_select = &($4->selection);
+      $$->comp = $2;
+
+      delete $1;
+    }
+    | EXISTS LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->need_sub_query = true;
+      $$->sub_select = &($3->selection);
+      $$->comp = EX;
+    }
+    | NOT EXISTS LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->need_sub_query = true;
+      $$->sub_select = &($4->selection);
+      $$->comp = NOT_EX;
+    }
     ;
 
 comp_op:
@@ -881,6 +919,8 @@ comp_op:
     | NK { $$ = NLIKE;}
     | IS NOT { $$ = IS_NOT_NULL;}
     | IS { $$ = IS_NULL;}
+    | IN { $$ = IN_;}
+    | NOT IN { $$ = NOT_IN;}
     ;
 
 load_data_stmt:

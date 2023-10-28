@@ -21,14 +21,15 @@ See the Mulan PSL v2 for more details. */
  * @brief 谓词/过滤逻辑算子
  * @ingroup LogicalOperator
  */
-class PredicateLogicalOperator : public LogicalOperator 
+class PredicateLogicalOperator : public LogicalOperator
 {
 public:
-  PredicateLogicalOperator(std::unique_ptr<Expression> expression);
+  PredicateLogicalOperator(std::unique_ptr<Expression> expression, std::vector<std::pair<Field, CompOp> > other_exprs);
   virtual ~PredicateLogicalOperator() = default;
 
-  LogicalOperatorType type() const override
-  {
-    return LogicalOperatorType::PREDICATE;
-  }
+  LogicalOperatorType                     type() const override { return LogicalOperatorType::PREDICATE; }
+  std::vector<std::pair<Field, CompOp> > &other_exprs() { return other_exprs_; }
+
+private:
+  std::vector<std::pair<Field, CompOp> > other_exprs_;
 };

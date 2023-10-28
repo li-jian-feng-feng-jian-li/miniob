@@ -27,14 +27,11 @@ class FilterStmt;
 class PredicatePhysicalOperator : public PhysicalOperator
 {
 public:
-  PredicatePhysicalOperator(std::unique_ptr<Expression> expr);
+  PredicatePhysicalOperator(std::unique_ptr<Expression> expr, std::vector<std::pair<Field, CompOp> > other_exprs);
 
   virtual ~PredicatePhysicalOperator() = default;
 
-  PhysicalOperatorType type() const override
-  {
-    return PhysicalOperatorType::PREDICATE;
-  }
+  PhysicalOperatorType type() const override { return PhysicalOperatorType::PREDICATE; }
 
   RC open(Trx *trx) override;
   RC next() override;
@@ -43,6 +40,10 @@ public:
   Tuple *current_tuple() override;
 
 private:
-  std::vector<Tuple *> correct_tuple_;
-  std::unique_ptr<Expression> expression_;
+  std::vector<Tuple *>                   correct_tuple_;
+  std::unique_ptr<Expression>            expression_;
+  std::vector<std::pair<Field, CompOp> > other_exprs_;
+  int                                    child_oper_index  = 0;
+  bool                                   finish_sub_select_ = false;
+  std::vector<std::vector<Value> > all_values_in_subq;
 };

@@ -23,6 +23,7 @@ PredicatePhysicalOperator::PredicatePhysicalOperator(
     : expression_(std::move(expr))
 {
   other_exprs_.swap(other_exprs);
+  return_more_than_one_field.resize(other_exprs_.size(), false);
   ASSERT(expression_->value_type() == BOOLEANS, "predicate's expression should be BOOLEAN type");
 }
 
@@ -43,8 +44,6 @@ RC PredicatePhysicalOperator::open(Trx *trx)
 RC PredicatePhysicalOperator::next()
 {
   RC rc = RC::SUCCESS;
-
-  bool return_more_than_one_field = false;
   // handle sub_query
   if (!finish_sub_select_) {
     for (int i = 0; i < other_exprs_.size(); i++) {
@@ -59,7 +58,7 @@ RC PredicatePhysicalOperator::next()
 
         ProjectTuple *project_tuple = static_cast<ProjectTuple *>(ctuple);
         if (project_tuple->cell_num() != 1) {
-          return_more_than_one_field = true;
+          return_more_than_one_field[child_oper_index - 1] = true;
         }
 
         Value value;
@@ -108,7 +107,7 @@ RC PredicatePhysicalOperator::next()
 
       switch (op) {
         case EQUAL_TO: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -124,7 +123,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case LESS_EQUAL: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -140,7 +139,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case NOT_EQUAL: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -156,7 +155,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case LESS_THAN: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -172,7 +171,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case GREAT_EQUAL: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -188,7 +187,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case GREAT_THAN: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -204,7 +203,7 @@ RC PredicatePhysicalOperator::next()
           }
         } break;
         case IN_: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -221,7 +220,7 @@ RC PredicatePhysicalOperator::next()
           is_correct &= find;
         } break;
         case NOT_IN: {
-          if (return_more_than_one_field) {
+          if (return_more_than_one_field[filter_index]) {
             LOG_WARN("select operation returns with more than one field!");
             rc = RC::INVALID_ARGUMENT;
             return rc;
@@ -254,6 +253,7 @@ RC PredicatePhysicalOperator::next()
 
       if (!is_correct)
         break;
+      filter_index++;
     }
     if (is_correct) {
       correct_tuple_.emplace_back(tuple);

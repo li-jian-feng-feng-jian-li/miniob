@@ -39,6 +39,7 @@ enum class ExprType
   STAR,         ///< 星号，表示所有字段
   FIELD,        ///< 字段。在实际执行时，根据行数据内容提取对应字段的值
   VALUE,        ///< 常量值
+  VALUES,       ///< SEVERAL VALUES
   CAST,         ///< 需要做类型转换的表达式
   COMPARISON,   ///< 需要做比较的表达式
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
@@ -72,6 +73,11 @@ public:
    * @details 有些表达式的值是固定的，比如ValueExpr，这种情况下可以直接获取值
    */
   virtual RC try_get_value(Value &value) const
+  {
+    return RC::UNIMPLENMENT;
+  }
+
+  virtual RC get_values(const Tuple &tuple, std::vector<Value> &values) const
   {
     return RC::UNIMPLENMENT;
   }
@@ -158,6 +164,28 @@ private:
   Value value_;
 };
 
+class ValuesExpr : public Expression 
+{
+public:
+  ValuesExpr() = default;
+  explicit ValuesExpr(std::vector<Value> values) : values_(values)
+  {}
+
+  virtual ~ValuesExpr() = default;
+
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC try_get_value(Value &value) const override { value = values_[0]; return RC::SUCCESS; }
+
+  ExprType type() const override { return ExprType::VALUES; }
+
+  AttrType value_type() const override { return values_[0].attr_type(); }
+
+  RC get_values(const Tuple &tuple, std::vector<Value> &values) const override;
+
+private:
+  std::vector<Value> values_;
+};
+
 /**
  * @brief 类型转换表达式
  * @ingroup Expression
@@ -220,6 +248,7 @@ public:
    * @param value the result of comparison
    */
   RC compare_value(const Value &left, const Value &right, bool &value) const;
+  RC compare_value(const Value &left, std::vector<Value> &right, bool &value) const;
 
 private:
   CompOp comp_;

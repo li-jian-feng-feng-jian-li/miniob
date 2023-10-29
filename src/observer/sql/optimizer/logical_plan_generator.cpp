@@ -117,24 +117,24 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     return rc;
   }
   // 获取是否为count_star 用来操作逻辑运算符
-  bool                        is_count_star = select_stmt ->get_is_count_star();
-  bool                        need_to_agg = !select_stmt -> agg_fields().empty();
+  bool                        is_count_star = select_stmt->get_is_count_star();
+  bool                        need_to_agg   = !select_stmt->agg_fields().empty();
   bool                        need_to_order = !select_stmt->order_fields().empty();
   unique_ptr<LogicalOperator> order_oper(nullptr);
- if (need_to_agg | need_to_order) {
+  if (need_to_agg | need_to_order) {
     // 此处创建自运算符
-    if(is_count_star){
-      unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields(),select_stmt->agg_fields(),true));
-      order_oper = std::move(sort_oper);    
+    if (is_count_star) {
+      unique_ptr<LogicalOperator> sort_oper(
+          new SortLogicalOperator(select_stmt->order_fields(), select_stmt->agg_fields(), true));
+      order_oper = std::move(sort_oper);
+    } else {
+      unique_ptr<LogicalOperator> sort_oper(
+          new SortLogicalOperator(select_stmt->order_fields(), select_stmt->agg_fields()));
+      order_oper = std::move(sort_oper);
     }
-    else{
-      unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields(),select_stmt->agg_fields()));
-      order_oper = std::move(sort_oper);    
-    }
-    
   }
 
-  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields,need_to_agg));
+  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields, need_to_agg));
   // if (predicate_oper) {
   //   if (table_oper) {
   //     predicate_oper->add_child(std::move(table_oper));
@@ -190,9 +190,10 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
                                       ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
                                       : static_cast<Expression *>(new ValueExpr(filter_obj_left.value)));
 
-      unique_ptr<Expression> right(filter_obj_right.is_attr
-                                       ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
-                                       : static_cast<Expression *>(new ValueExpr(filter_obj_right.value)));
+      unique_ptr<Expression> right(
+          filter_obj_right.is_attr            ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
+          : (filter_obj_right.values.empty()) ? static_cast<Expression *>(new ValueExpr(filter_obj_right.value))
+                                              : static_cast<Expression *>(new ValuesExpr(filter_obj_right.values)));
 
       ComparisonExpr *cmp_expr = new ComparisonExpr(filter_unit->comp(), std::move(left), std::move(right));
       cmp_exprs.emplace_back(cmp_expr);

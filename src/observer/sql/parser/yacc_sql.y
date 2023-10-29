@@ -799,18 +799,21 @@ order:
       $$->attribute_name = $1->attribute_name;
       $$->relation_name = $1->relation_name;
       $$->order_by_desc = false;
+      delete $1;
     }
     | rel_attr DESC {
       $$ = new RelAttrOrderNode;
       $$->attribute_name = $1->attribute_name;
       $$->relation_name = $1->relation_name;
       $$->order_by_desc = true;
+      delete $1;
     }
     | rel_attr {
       $$ = new RelAttrOrderNode;
       $$->attribute_name = $1->attribute_name;
       $$->relation_name = $1->relation_name;
       $$->order_by_desc = false;
+      delete $1;
     }
     ;
 
@@ -990,7 +993,36 @@ condition:
       delete $1;
       delete $3;
     }
-    // 在这里加了个子查询的语句
+    | value comp_op LBRACE value value_list RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 0;
+      $$->left_value = *$1;
+      if($5 != nullptr){
+        $$->in_values.swap(*$5);
+      }
+      $$->in_values.emplace_back(*$4);
+      $$->comp = $2;
+
+      delete $1;
+      delete $4;
+      delete $5;
+    }
+    | rel_attr comp_op LBRACE value value_list RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 1;
+      $$->left_attr = *$1;
+      if($5 != nullptr){
+        $$->in_values.swap(*$5);
+      }
+      $$->in_values.emplace_back(*$4);
+      $$->comp = $2;
+
+      delete $1;
+      delete $4;
+      delete $5;
+    }
     | value comp_op LBRACE select_stmt RBRACE
     {
       $$ = new ConditionSqlNode;

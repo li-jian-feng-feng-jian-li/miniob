@@ -27,6 +27,7 @@ class SelectStmt;
 
 struct FilterObj
 {
+  std::vector<Value> values;
   bool           is_attr;
   bool           is_subq = false;
   Field          field;
@@ -49,6 +50,10 @@ struct FilterObj
   {
     is_subq          = true;
     this->sub_select = select;
+  }
+  void init_values(std::vector<Value> values){
+    is_attr = false;
+    this->values.swap(values);
   }
 };
 

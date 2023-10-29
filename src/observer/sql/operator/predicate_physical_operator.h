@@ -43,7 +43,8 @@ private:
   std::vector<Tuple *>                   correct_tuple_;
   std::unique_ptr<Expression>            expression_;
   std::vector<std::pair<Field, CompOp> > other_exprs_;
-  int                                    child_oper_index  = 0;
+  int                                    child_oper_index   = 0;
   bool                                   finish_sub_select_ = false;
-  std::vector<std::vector<Value> > all_values_in_subq;
+  std::vector<std::vector<Value> >       all_values_in_subq;
+  std::vector<bool>                      return_more_than_one_field;
 };

@@ -63,82 +63,13 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
 
-  // collect query fields in `select` statement
-  std::vector<Field> query_fields;
-  for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
-    const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+  // 此处要改写对于count(*)的判断
+  bool is_count_star = false;
 
-    // e.g. select * from t or select id from t
-    if (common::is_blank(relation_attr.relation_name.c_str()) &&
-        0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
-      for (Table *table : tables) {
-        wildcard_fields(table, query_fields);
-      }
-
-      // e.g. select c.xx from c ,xx can be * or any attr
-    } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
-      const char *table_name = relation_attr.relation_name.c_str();
-      const char *field_name = relation_attr.attribute_name.c_str();
-
-      // select *.xx
-      if (0 == strcmp(table_name, "*")) {
-        // if not select *.* ,return error
-        if (0 != strcmp(field_name, "*")) {
-          LOG_WARN("invalid field name while table is *. attr=%s", field_name);
-          return RC::SCHEMA_FIELD_MISSING;
-        }
-        // select *.*
-        for (Table *table : tables) {
-          wildcard_fields(table, query_fields);
-        }
-      } else {
-        // select t.xx
-        auto iter = table_map.find(table_name);
-        if (iter == table_map.end()) {
-          LOG_WARN("no such table in from list: %s", table_name);
-          return RC::SCHEMA_FIELD_MISSING;
-        }
-
-        Table *table = iter->second;
-        // select t.*
-        if (0 == strcmp(field_name, "*")) {
-          wildcard_fields(table, query_fields);
-        } else {
-          // select t.xx
-          const FieldMeta *field_meta = table->table_meta().field(field_name);
-          if (nullptr == field_meta) {
-            LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
-            return RC::SCHEMA_FIELD_MISSING;
-          }
-
-          query_fields.push_back(Field(table, field_meta));
-        }
-      }
-    } else {
-      // select id,name from t1.t2,invaild
-      if (tables.size() != 1) {
-        LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
-        return RC::SCHEMA_FIELD_MISSING;
-      }
-      // select id,name from t
-      Table           *table      = tables[0];
-      const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name.c_str());
-      if (nullptr == field_meta) {
-        LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), relation_attr.attribute_name.c_str());
-        return RC::SCHEMA_FIELD_MISSING;
-      }
-
-      query_fields.push_back(Field(table, field_meta));
-    }
-  }
-
-  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), query_fields.size());
-
-
- // 此处加入聚合查询字段
+  // 此处加入聚合查询字段
   std::vector<std::pair<Field, std::string> > agg_fields;
   bool isAgg = false;
-  bool is_count_star = false;
+  
   // 先遍历一遍置位
 
   // 此处处理查询字段多于1个返回错误
@@ -279,6 +210,119 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
 
 
 
+
+  // collect query fields in `select` statement
+  std::vector<Field> query_fields;
+  for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
+    const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+
+    // e.g. select * from t or select id from t
+    if (common::is_blank(relation_attr.relation_name.c_str()) &&
+        0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
+          if(is_count_star){
+            if (tables.size() != 1) {
+            // 此处暂不处理多表无约束的情况
+              return RC::SCHEMA_FIELD_MISSING;
+            }
+            else{
+              Table           *table      = tables[0];
+              const FieldMeta *field_meta3 = table->table_meta().field(table->table_meta().sys_field_num());
+              query_fields.push_back(Field(table, field_meta3));
+            }
+          }
+          else{
+            for (Table *table : tables) {
+            wildcard_fields(table, query_fields);
+            }
+          }
+
+      // e.g. select c.xx from c ,xx can be * or any attr
+    } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
+      const char *table_name = relation_attr.relation_name.c_str();
+      const char *field_name = relation_attr.attribute_name.c_str();
+
+      // select *.xx
+      if (0 == strcmp(table_name, "*")) {
+        // if not select *.* ,return error
+        if (0 != strcmp(field_name, "*")) {
+          LOG_WARN("invalid field name while table is *. attr=%s", field_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        // 对于*.*同样处理
+        // select *.*
+        if(is_count_star){
+            if (tables.size() != 1) {
+            // 此处暂不处理多表无约束的情况
+              return RC::SCHEMA_FIELD_MISSING;
+            }
+            else{
+              Table           *table      = tables[0];
+              const FieldMeta *field_meta3 = table->table_meta().field(table->table_meta().sys_field_num());
+              query_fields.push_back(Field(table, field_meta3));
+            }
+          }else{
+            for (Table *table : tables) {
+            wildcard_fields(table, query_fields);
+          }
+        }
+      } else {
+        // select t.xx
+        auto iter = table_map.find(table_name);
+        if (iter == table_map.end()) {
+          LOG_WARN("no such table in from list: %s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+
+        Table *table = iter->second;
+        // select t.*
+        if (0 == strcmp(field_name, "*")) {
+          if(is_count_star){
+            if (tables.size() != 1) {
+            // 此处暂不处理多表无约束的情况
+              return RC::SCHEMA_FIELD_MISSING;
+            }
+            else{
+              Table           *table      = tables[0];
+              const FieldMeta *field_meta3 = table->table_meta().field(table->table_meta().sys_field_num());
+              query_fields.push_back(Field(table, field_meta3));
+            }
+          }
+          else{
+            wildcard_fields(table, query_fields);
+          }
+        } else {
+          // select t.xx
+          const FieldMeta *field_meta = table->table_meta().field(field_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+
+          query_fields.push_back(Field(table, field_meta));
+        }
+      }
+    } else {
+      // select id,name from t1.t2,invaild
+      if (tables.size() != 1) {
+        LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      // select id,name from t
+      Table           *table      = tables[0];
+      const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name.c_str());
+      if (nullptr == field_meta) {
+        LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+
+      query_fields.push_back(Field(table, field_meta));
+    }
+  }
+
+  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), query_fields.size());
+
+
+ 
   // get from order by
   std::vector<std::pair<Field, bool> > order_fields;
   for (int i = 0; i < select_sql.orders.size(); i++) {

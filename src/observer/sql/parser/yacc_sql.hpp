@@ -117,7 +117,9 @@ extern int yydebug;
     ID = 318,                      /* ID  */
     DATE_STR = 319,                /* DATE_STR  */
     SSS = 320,                     /* SSS  */
-    UMINUS = 321                   /* UMINUS  */
+    COUNT = 321,                   /* COUNT  */
+    AGG_FUNC = 322,                /* AGG_FUNC  */
+    UMINUS = 323                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -133,6 +135,7 @@ union YYSTYPE
   Value *                           value;
   enum CompOp                       comp;
   RelAttrSqlNode *                  rel_attr;
+  RelAttrSqlNode *                  all_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -141,6 +144,9 @@ union YYSTYPE
   std::vector<std::vector<Value> > *     value_lists;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
+   std::vector<RelAttrSqlNode> *     select_list;
+  std::vector<RelAttrSqlNode> *     all_attr_list;
+  std::vector<RelAttrSqlNode> *     select_attr_list;
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list;
@@ -156,7 +162,7 @@ union YYSTYPE
   int                               index_type;
   float                             floats;
 
-#line 160 "yacc_sql.hpp"
+#line 166 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

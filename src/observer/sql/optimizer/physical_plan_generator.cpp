@@ -278,6 +278,8 @@ RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &sort_oper, unique_ptr
 {
   vector<unique_ptr<LogicalOperator>> &child_opers = sort_oper.children();
   unique_ptr<PhysicalOperator>         child_phy_oper;
+  // 此处定义物理算子的情况
+  bool is_count_star = sort_oper.get_count_star();
 
   RC rc = RC::SUCCESS;
   if (!child_opers.empty()) {
@@ -289,7 +291,8 @@ RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &sort_oper, unique_ptr
     }
   }
 
-  SortPhysicalOperator *sort_operator = new SortPhysicalOperator(sort_oper.order_fields());
+  SortPhysicalOperator *sort_operator = new SortPhysicalOperator(sort_oper.order_fields(),sort_oper.agg_fields(),is_count_star);
+
 
   if (child_phy_oper) {
     sort_operator->add_child(std::move(child_phy_oper));
@@ -325,6 +328,10 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
 
   if (child_phy_oper) {
     project_operator->add_child(std::move(child_phy_oper));
+  }
+  if(project_oper.getAgg()){
+    // 此处表示需要聚合
+    project_operator->set_agg();
   }
 
   oper = unique_ptr<PhysicalOperator>(project_operator);

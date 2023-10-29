@@ -47,9 +47,14 @@ public:
   {
     return tuple_.cell_num();
   }
+  // 此处设置set_agg
+   void set_agg(){
+      is_agg = true;
+  }
 
   Tuple *current_tuple() override;
 
 private:
   ProjectTuple tuple_;
+  bool is_agg = false;
 };

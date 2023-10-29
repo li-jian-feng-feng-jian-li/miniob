@@ -38,6 +38,9 @@ RC ProjectPhysicalOperator::next()
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
+  if(is_agg){
+    tuple_.set_agg();
+  }
   return children_[0]->next();
 }
 
@@ -50,6 +53,9 @@ RC ProjectPhysicalOperator::close()
 }
 Tuple *ProjectPhysicalOperator::current_tuple()
 {
+  if(is_agg){
+    tuple_.set_agg();
+  }
   tuple_.set_tuple(children_[0]->current_tuple());
   return &tuple_;
 }

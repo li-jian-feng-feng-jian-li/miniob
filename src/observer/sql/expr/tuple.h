@@ -226,12 +226,15 @@ public:
     }
     speces_.clear();
   }
-
+  void set_agg(){
+    is_agg = true;
+  }
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
   int  cell_num() const override { return speces_.size(); }
 
+  
   RC cell_at(int index, Value &cell) const override
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
@@ -239,6 +242,11 @@ public:
     }
     if (tuple_ == nullptr) {
       return RC::INTERNAL;
+    }
+     if(is_agg){
+      // 此处就读取cell_at的模式
+      tuple_->cell_at(index,cell);
+      return RC::SUCCESS;
     }
 
     const TupleCellSpec *spec = speces_[index];
@@ -262,6 +270,7 @@ public:
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple                       *tuple_ = nullptr;
+  bool                         is_agg = false;
 };
 
 class SortTuple : public Tuple
@@ -279,22 +288,62 @@ public:
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
-  int  cell_num() const override { return speces_.size(); }
+  int  cell_num() const override { return vals_.size(); }
 
   RC cell_at(int index, Value &cell) const override
   {
-    if (index < 0 || index >= static_cast<int>(speces_.size())) {
-      return RC::INTERNAL;
-    }
-    if (tuple_ == nullptr) {
-      return RC::INTERNAL;
-    }
+    // if (index < 0 || index >= static_cast<int>(speces_.size())) {
+    //   return RC::INTERNAL;
+    // }
+    // if (tuple_ == nullptr) {
+    //   return RC::INTERNAL;
+    // }
 
-    const TupleCellSpec *spec = speces_[index];
-    return tuple_->find_cell(*spec, cell);
+    // const TupleCellSpec *spec = speces_[index];
+    // return tuple_->find_cell(*spec, cell);
+    // 直接取出此地的cell
+    if (index < 0 || index >= cell_num()) {
+      // 此处再设置index 归零
+      return RC::NOTFOUND;
+    }
+    
+    cell = vals_[index];
+    return RC::SUCCESS;
+  }
+  // 此处设置cell的值
+  void set_cell(const std::vector<Value> &cells,const std::vector<std::string> &fields) { 
+    
+    // 此处设置即可
+    vals_ = cells;
+    fields_= fields;
+  }
+  void set_index(int index){
+    index_ = index;
   }
 
-  RC find_cell(const TupleCellSpec &spec, Value &cell) const override { return tuple_->find_cell(spec, cell); }
+  RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
+    // 在这里就可以直接返回了
+    // 由于要找值，此处可以使用比较难或者比较简单的方法
+    // 先使用简单方法的话
+    // 此处再直接调用
+    // 用一个spec来找cell的值
+    // if(index_ < 0 || index_ >=cell_num()){
+    //   return RC::NOTFOUND;
+    // }
+    //int index = index_;
+    // 结下里使用cell`
+    //cell_at(index,cell);
+    //const char *table_name = spec.table_name();
+    //const char *field_name = spec.field_name();
+    // 接下来用表名与字段名来定位
+    cell = vals_[index_];
+    int index = index_;
+    index++;
+    //set_index(index);
+    
+    // 通过表名与字段名找出索引即可
+    return RC::NOTFOUND;
+  }
 
   std::string to_string() const override { return tuple_->to_string(); }
 
@@ -311,6 +360,10 @@ public:
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple                       *tuple_ = nullptr;
+  // 该处定义的Value可以当作返回值处理
+  std::vector<Value> vals_;
+  std::vector<std::string> fields_;
+  int index_       =  0;
 };
 
 class ExpressionTuple : public Tuple

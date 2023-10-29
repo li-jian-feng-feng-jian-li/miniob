@@ -53,9 +53,19 @@ public:
   {
     return order_fields_;
   }
+  const std::vector<std::pair<Field,std::string> > &agg_fields() const
+  {
+    return agg_fields_;
+  }
   const std::vector<Field> &query_fields() const
   {
     return query_fields_;
+  }
+  const bool get_is_count_star(){
+    return is_count_star_;
+  }
+  void set_count_star(){
+    is_count_star_ = true;
   }
   FilterStmt *filter_stmt() const
   {
@@ -64,7 +74,9 @@ public:
 
 private:
   std::vector<Field> query_fields_;
+  std::vector<std::pair<Field,std::string> > agg_fields_;
   std::vector<std::pair<Field,bool> > order_fields_;
   std::vector<Table *> tables_;
+  bool is_count_star_ = false;
   FilterStmt *filter_stmt_ = nullptr;
 };

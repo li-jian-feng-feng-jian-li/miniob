@@ -163,17 +163,17 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
   }
 
-  //check date comp char(incorrect date format will be cast to char type
+  // check date comp char(incorrect date format will be cast to char type
   //,so i use this comp to find invalid date value,consider about more than 12 months etc)
   bool can_be_compared = true;
 
-  if(condition.left_is_attr && left_attr_type == DATES 
-  && !condition.right_is_attr && condition.right_value.attr_type() == CHARS) {
+  if (condition.left_is_attr && left_attr_type == DATES && !condition.right_is_attr &&
+      !condition.right_value.is_null() && condition.right_value.attr_type() == CHARS) {
     can_be_compared = false;
   }
 
-  if(condition.right_is_attr && right_attr_type == DATES
-  && !condition.left_is_attr && condition.left_value.attr_type() == CHARS){
+  if (condition.right_is_attr && right_attr_type == DATES && !condition.left_is_attr &&
+      !condition.left_value.is_null() && condition.left_value.attr_type() == CHARS) {
     can_be_compared = false;
   }
 

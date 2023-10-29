@@ -120,6 +120,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   Value *                           value;
   enum CompOp                       comp;
   RelAttrSqlNode *                  rel_attr;
+  RelAttrSqlNode *                  all_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
   Expression *                      expression;
@@ -128,6 +129,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<std::vector<Value> > *     value_lists;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
+   std::vector<RelAttrSqlNode> *     select_list;
+  std::vector<RelAttrSqlNode> *     all_attr_list;
+  std::vector<RelAttrSqlNode> *     select_attr_list;
   std::vector<std::string> *        relation_list;
   std::vector<std::string> *        id_list;
   std::pair<std::vector<std::string> , std::vector<ConditionSqlNode> > * join_list;
@@ -149,6 +153,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %token <string> ID
 %token <string> DATE_STR
 %token <string> SSS
+%token <string> COUNT 
+%token <string> AGG_FUNC
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -158,6 +164,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <number>              number
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
+%type <all_attr>            all_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <join_list>           join_list
@@ -169,6 +176,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
+%type <all_attr_list>       all_attr_list
+%type <select_attr_list>    select_attr_list
+%type <select_list>         select_list
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
 %type <nullable>            nullable
@@ -574,7 +584,7 @@ update_value:
   ;
   
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list join_list where order_attr
+    SELECT select_list FROM ID rel_list join_list where order_attr
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -660,19 +670,106 @@ expression:
       delete $1;
     }
     ;
+select_list:
+  select_attr_list {
+      // 这个处理就是直接放入
+      $$ = $1;
+    }
+    ;
+//接下来就是列表的修改
+select_attr_list:
+   /* empty */
+    {
+      $$ = nullptr;
+    }
+  // 此处还需要再处理
+  | all_attr all_attr_list{
+    if ($2 != nullptr){
+        $$ = $2;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$ -> emplace_back(*$1);
+      delete $1;
+  } 
+  ;
+
+// 此处就是加上列表
+all_attr_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    } | COMMA all_attr all_attr_list {
+      if($3 != nullptr){
+        $$ = $3;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+// 匹配单个 
+all_attr:
+   rel_attr
+   {
+      // 如果直接是引用字段就之间加入
+      $$ = $1;// 表示是rel_attr的字段
+   }
+  | COUNT LBRACE select_attr RBRACE 
+	 {
+    if($3->size() > 1){
+      $$ = new RelAttrSqlNode;
+      $$->agg_name = strdup($1);
+      $$->isOK = false;
+      free($3);
+    }
+    else{
+      // 只有COUNT允许COUNT(*)
+		  $$ = new RelAttrSqlNode;
+      $$->attribute_name = $3->back().attribute_name;
+      $$->agg_name = strdup($1);
+      free($1);
+    }
+	}
+  | COUNT LBRACE RBRACE 
+	 {
+   
+      $$ = new RelAttrSqlNode;
+      $$->agg_name = strdup($1);
+      $$->isOK = false;   
+	}
+  | AGG_FUNC LBRACE select_attr RBRACE 
+  {
+    if($3->size() > 1){
+      $$ = new RelAttrSqlNode;
+      $$->agg_name = strdup($1);
+      $$->isOK = false;
+    }
+    else{
+      // 只有COUNT允许COUNT(*)
+		  $$ = new RelAttrSqlNode;
+      $$->attribute_name = $3->back().attribute_name;
+      $$->agg_name = strdup($1);
+      free($1);
+    }
+  }
+  | AGG_FUNC LBRACE RBRACE 
+	 {
+   
+      $$ = new RelAttrSqlNode;
+      $$->agg_name = strdup($1);
+      $$->isOK = false;   
+	}
+  ;
 
 select_attr:
-    '*' {
-      $$ = new std::vector<RelAttrSqlNode>;
-      RelAttrSqlNode attr;
-      attr.relation_name  = "";
-      attr.attribute_name = "*";
-      $$->emplace_back(attr);
-    }
-    | rel_attr attr_list {
+    // 此处就是直接的一个列表
+    rel_attr attr_list {
       if ($2 != nullptr) {
         $$ = $2;
       } else {
+        /* 这里创建的是新数组 */
         $$ = new std::vector<RelAttrSqlNode>;
       }
       $$->emplace_back(*$1);
@@ -733,8 +830,14 @@ order_list:
     ;
 
 
+// 这里加一个聚合函数的list，用list存储
 rel_attr:
-    ID {
+   '*'{
+      // 此处就是直接获取，增加一个该判断请求
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name='*';
+    }
+    | ID {
       $$ = new RelAttrSqlNode;
       $$->attribute_name = $1;
       free($1);
@@ -746,7 +849,24 @@ rel_attr:
       free($1);
       free($3);
     }
-    ;
+    | '*' DOT ID{
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = "*";
+      $$->attribute_name = $3;
+      free($3);
+    }
+    | '*' DOT '*'{
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = "*";
+      $$->attribute_name = "*";
+      
+    }
+    | ID DOT '*'{
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = $1;
+      $$->attribute_name = "*";    
+    }
+  ;
 
 attr_list:
     /* empty */
@@ -870,6 +990,7 @@ condition:
       delete $1;
       delete $3;
     }
+    // 在这里加了个子查询的语句
     | value comp_op LBRACE select_stmt RBRACE
     {
       $$ = new ConditionSqlNode;

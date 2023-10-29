@@ -38,6 +38,8 @@ struct RelAttrSqlNode
 {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+  std::string agg_name;        /// 定义聚合函数方法 
+  bool isOK = true;            ///定义参数是否正确
 };
 
 struct RelAttrOrderNode

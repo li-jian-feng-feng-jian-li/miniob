@@ -126,6 +126,8 @@ DATE                                    RETURN_TOKEN(DATE_T);
 TEXT                                    RETURN_TOKEN(TEXT_T);
 LOAD                                    RETURN_TOKEN(LOAD);
 DATA                                    RETURN_TOKEN(DATA);
+COUNT					                          yylval->string=strdup(yytext); RETURN_TOKEN(COUNT);
+MAX|MIN|AVG|SUM                         yylval->string=strdup(yytext); RETURN_TOKEN(AGG_FUNC);
 INFILE                                  RETURN_TOKEN(INFILE);
 EXPLAIN                                 RETURN_TOKEN(EXPLAIN);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);

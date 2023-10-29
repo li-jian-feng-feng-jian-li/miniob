@@ -86,6 +86,7 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
 
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
+  // 此处是查询的逻辑字段
   unique_ptr<LogicalOperator> table_oper(nullptr);
 
   const std::vector<Table *> &tables     = select_stmt->tables();
@@ -115,15 +116,25 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
   }
-
+  // 获取是否为count_star 用来操作逻辑运算符
+  bool                        is_count_star = select_stmt ->get_is_count_star();
+  bool                        need_to_agg = !select_stmt -> agg_fields().empty();
   bool                        need_to_order = !select_stmt->order_fields().empty();
   unique_ptr<LogicalOperator> order_oper(nullptr);
-  if (need_to_order) {
-    unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields()));
-    order_oper = std::move(sort_oper);
+ if (need_to_agg | need_to_order) {
+    // 此处创建自运算符
+    if(is_count_star){
+      unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields(),select_stmt->agg_fields(),true));
+      order_oper = std::move(sort_oper);    
+    }
+    else{
+      unique_ptr<LogicalOperator> sort_oper(new SortLogicalOperator(select_stmt->order_fields(),select_stmt->agg_fields()));
+      order_oper = std::move(sort_oper);    
+    }
+    
   }
 
-  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields));
+  unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(all_fields,need_to_agg));
   // if (predicate_oper) {
   //   if (table_oper) {
   //     predicate_oper->add_child(std::move(table_oper));
